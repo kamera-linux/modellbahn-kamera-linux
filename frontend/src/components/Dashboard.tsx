@@ -21,11 +21,12 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 p-6">
-      <header className="mb-8 flex justify-between items-start">
+    <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
+      <header className="mb-8 flex flex-wrap justify-between items-start gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-white flex items-center gap-3">
-            📹 Modellbahn Kamera Manager
+          <h1 className="text-2xl sm:text-4xl font-bold text-white flex items-center gap-3 sm:gap-4">
+            <img src="/logo-lok.webp" alt="" width={480} height={376} className="h-12 sm:h-16 w-auto shrink-0 drop-shadow-lg" />
+            Modellbahn Kamera Manager
           </h1>
           <p className="text-gray-400 mt-2">Zentrale Verwaltungsplattform</p>
         </div>
