@@ -1,0 +1,25 @@
+# dependencies / build output
+node_modules/
+dist/
+build/
+public/
+coverage/
+
+# local configuration & secrets
+.env
+.env.local
+config/devices.json
+
+# runtime data: photos, videos, logs, schedules, pinned host keys
+data/
+
+# misc
+*.log
+*.tmp
+.DS_Store
+*.swp
+*.swo
+.vscode/settings.json
+__pycache__/
+.pytest_cache/
+venv/

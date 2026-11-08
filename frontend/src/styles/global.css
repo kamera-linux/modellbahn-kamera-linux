@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-gray-900 text-white;
+}
+
+.card {
+  @apply bg-gray-800 border border-gray-700 rounded-lg p-6 shadow-lg;
+}
+
+.btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition;
+}
+
+.btn-secondary {
+  @apply bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition;
+}
+
+.status-online {
+  @apply bg-green-500;
+}
+
+.status-offline {
+  @apply bg-red-500;
+}
+
+.status-recording {
+  @apply bg-orange-500 animate-pulse;
+}
+
+/* Optimierungen nur für große Displays (1920x1080+) - Fernseher */
+@media (min-width: 1920px) {
+  /* Verhindere horizontales Scrollen */
+  html {
+    overflow-x: hidden;
+  }
+  
+  body {
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Stelle sicher, dass Container nicht überlaufen */
+  div[class*="grid"], 
+  div[class*="flex"] {
+    overflow-x: hidden;
+  }
+  
+  /* Optimiere Text-Wrapping für breite Displays */
+  .card h2, 
+  .card h3 {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  /* Button-Text soll nicht abgeschnitten werden */
+  button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}

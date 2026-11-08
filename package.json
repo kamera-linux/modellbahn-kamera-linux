@@ -1,0 +1,50 @@
+{
+  "name": "modellbahn-kamera-manager",
+  "version": "1.1.0",
+  "description": "Central management platform for model railway camera system",
+  "private": true,
+  "type": "module",
+  "main": "dist/backend/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "tsx watch src/backend/index.ts",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "tsc --project tsconfig.backend.json",
+    "build:frontend": "npm --prefix frontend run build",
+    "start": "node dist/backend/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src frontend/src",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p frontend/tsconfig.json"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "joi": "^17.13.3",
+    "node-ssh": "^13.2.0",
+    "uuid": "^10.0.0",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.17.10",
+    "@types/supertest": "^6.0.2",
+    "@types/uuid": "^10.0.0",
+    "concurrently": "^9.1.0",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "globals": "^15.14.0",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1",
+    "vitest": "^2.1.8"
+  }
+}

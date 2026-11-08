@@ -1,0 +1,24 @@
+services:
+  manager:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: modellbahn-kamera-manager:latest
+    container_name: modellbahn-kamera-manager
+    # Must match the owner of ./config, ./data and the SSH key on the host.
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    ports:
+      - "${HOST_PORT:-8000}:3000"
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      SSH_KEY_PATH: /run/secrets/ssh_key
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+      # Only the one private key for the cameras – not the whole ~/.ssh
+      - ${SSH_KEY_FILE:?SSH_KEY_FILE in .env setzen (Pfad zum privaten Kamera-Key)}:/run/secrets/ssh_key:ro
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
