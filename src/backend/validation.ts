@@ -56,7 +56,15 @@ export const schemas = {
 
   recording: Joi.object({
     ...captureFields,
-    duration: Joi.number().integer().min(1).max(3600).default(5)
+    duration: Joi.number().integer().min(1).max(3600).default(5),
+    audio: Joi.boolean().default(false)
+  }),
+
+  groupRecording: Joi.object({
+    ...captureFields,
+    duration: Joi.number().integer().min(1).max(3600).default(60),
+    audio: Joi.boolean().default(false),
+    cameraIds: Joi.array().items(Joi.string().max(100)).unique()
   }),
 
   rotation: Joi.object({

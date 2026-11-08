@@ -14,7 +14,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEVICES="$ROOT/config/devices.json"
 REMOTE_DIR="modellbahn-kamera-linux/scripts"
-FILES=(camera_common.py camera-capture.py camera-record.py test-camera.sh setup-rpi-zero.sh)
+FILES=(camera_common.py camera-capture.py camera-record.py camera-selfcheck.py test-camera.sh setup-rpi-zero.sh)
 
 SETUP=0
 ONLY=""

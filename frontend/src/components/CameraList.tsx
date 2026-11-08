@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useCameraStore } from '../store/cameraStore';
 import { api, errorMessage } from '../api/client';
+import { SyncBadge, isReady } from './SyncBadge';
 import { Camera, Circle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
 export const CameraList: React.FC = () => {
@@ -42,8 +43,8 @@ export const CameraList: React.FC = () => {
     <div className="card">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold flex items-center gap-2">
-          <Camera className="w-6 h-6" />
-          Kameras ({cameras.filter(c => c.status === 'online').length}/{cameras.length})
+          <Camera className="w-6 h-6 shrink-0" />
+          Kameras ({cameras.filter(isReady).length}/{cameras.length} bereit)
         </h2>
         <button
           onClick={fetchCameras}
@@ -85,6 +86,7 @@ export const CameraList: React.FC = () => {
                       {camera.status === 'recording' && <span className="text-orange-400">Aufnahme</span>}
                     </span>
                   </div>
+                  <SyncBadge camera={camera} />
                   {camera.lastSeen && (
                     <p className="text-xs text-gray-500">
                       {new Date(camera.lastSeen).toLocaleTimeString('de-DE')}

@@ -20,6 +20,7 @@ const server = createApp().listen(appConfig.port, () => {
 const shutdown = (signal: string) => {
   logger.info(`${signal} received, shutting down`);
   getScheduleManager().shutdown();
+  getCameraManager().audio.shutdown();
   getCameraManager().sshManager.closeAll();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 5000).unref();

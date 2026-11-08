@@ -74,6 +74,20 @@ def set_rotation_flag(path, rotate):
     cc.warn("could not set rotation flag, video stays unrotated")
 
 
+def first_frame_walltime(picam2):
+    """
+    Wall-clock time of the first recorded frame, from its sensor timestamp
+    (CLOCK_BOOTTIME). The manager uses it to line up the microphone audio.
+    """
+    now_wall = time.time()
+    try:
+        sensor_ns = picam2.capture_metadata()["SensorTimestamp"]
+        boot_now = time.clock_gettime(time.CLOCK_BOOTTIME)
+        return now_wall - (boot_now - sensor_ns / 1e9)
+    except Exception:  # noqa: BLE001 - fall back to "now"
+        return now_wall
+
+
 def make_output(path, muxer):
     """
     PyavOutput writes the MP4 inside this process using the real frame timestamps.
@@ -108,8 +122,22 @@ def record(args):
             picam2.set_controls({"ScalerCrop": crop})
 
         encoder = H264Encoder(bitrate=args.bitrate)
-        picam2.start_recording(encoder, make_output(args.output, args.muxer))
+        output = make_output(args.output, args.muxer)
+
+        # Synchronised start of several cars: everything is prepared, now wait for the
+        # agreed wall-clock time (already converted to this Pi's clock by the manager).
+        if args.start_at:
+            delay = args.start_at - time.time()
+            if delay < 0:
+                cc.warn(f"start time missed by {-delay:.2f}s, starting immediately")
+            while not stop_requested and time.time() < args.start_at:
+                time.sleep(min(0.01, max(0.0, args.start_at - time.time())))
+            if stop_requested:
+                raise RuntimeError("stopped before the recording started")
+
+        picam2.start_recording(encoder, output)
         recording = True
+        print(f"STARTED_AT={first_frame_walltime(picam2):.3f}", flush=True)
 
         if args.autofocus_mode == "auto" and cc.has_autofocus(picam2):
             picam2.autofocus_cycle(wait=False)
@@ -136,12 +164,14 @@ def main():
     parser.add_argument("--bitrate", type=int, default=5_000_000)
     parser.add_argument("--timeout", type=int, default=None, help="Hard limit in seconds")
     parser.add_argument("--muxer", default="pyav", choices=["pyav", "ffmpeg"], help="MP4 writer")
+    parser.add_argument("--start-at", type=float, default=None, help="Start at this Unix time (synchronised start)")
     args = parser.parse_args()
 
     signal.signal(signal.SIGINT, _request_stop)
     signal.signal(signal.SIGTERM, _request_stop)
     signal.signal(signal.SIGALRM, _on_alarm)
-    signal.alarm(args.timeout or int(args.duration) + 45)
+    wait = max(0, int((args.start_at or 0) - time.time())) if args.start_at else 0
+    signal.alarm((args.timeout or int(args.duration) + 45) + wait)
 
     started = time.monotonic()
     try:

@@ -19,6 +19,21 @@ export interface ExecResult {
 
 const keyOf = (t: SSHTarget) => `${t.user}@${t.host}:${t.port}`;
 
+/**
+ * Short, readable error text from remote stderr: our scripts print "Error: …",
+ * libcamera logs "… ERROR …"; INFO/WARN noise is dropped.
+ */
+export function summarizeStderr(stderr: string, stdout = ''): string {
+  const lines = (stderr || stdout).split('\n').map(l => l.trim()).filter(Boolean);
+  const own = lines.filter(l => /^Error:/.test(l));
+  if (own.length) {
+    const lib = lines.filter(l => / ERROR /.test(l)).map(l => l.replace(/^\[[^\]]*\]\s*\[\d+\]\s*ERROR\s+\S+\s+\S+\s*/, ''));
+    return [...own, ...lib.slice(0, 2)].join(' – ');
+  }
+  const errors = lines.filter(l => / ERROR /.test(l) || /^(error|fatal)/i.test(l));
+  return (errors.length ? errors : lines.filter(l => !/ (INFO|WARN|DEBUG) /.test(l)).slice(-3)).join(' – ') || 'unbekannter Fehler';
+}
+
 /** Pins SSH host keys on first contact and rejects changed keys afterwards (TOFU). */
 class KnownHosts {
   private hosts: Record<string, string> = {};
@@ -127,7 +142,8 @@ export class SSHManager {
       const conn = await this.getConnection(target, opts.readyTimeout);
       const result = await conn.execCommand(command);
       if (result.code !== 0 && !opts.allowFailure) {
-        throw new Error(`Command failed (exit ${result.code}): ${result.stderr.trim() || result.stdout.trim()}`);
+        const reason = result.code === 124 ? 'Zeitüberschreitung' : summarizeStderr(result.stderr, result.stdout);
+        throw new Error(`Command failed (exit ${result.code}): ${reason}`);
       }
       return { stdout: result.stdout, stderr: result.stderr, code: result.code };
     } catch (err) {
@@ -139,11 +155,40 @@ export class SSHManager {
     }
   }
 
+  /**
+   * Clock offset of the remote host in seconds (remote - local), estimated like NTP:
+   * the remote timestamp is compared with the midpoint of the round trip. The sample
+   * with the shortest round trip wins.
+   */
+  async measureClockOffset(target: SSHTarget, samples = 3): Promise<{ offset: number; rtt: number }> {
+    let best = { offset: 0, rtt: Infinity };
+    for (let i = 0; i < samples; i++) {
+      const t1 = Date.now() / 1000;
+      const { stdout } = await this.exec(target, 'date +%s.%N');
+      const t2 = Date.now() / 1000;
+      const remote = parseFloat(stdout.trim());
+      if (!Number.isFinite(remote)) throw new Error(`Unexpected date output: ${stdout}`);
+      const rtt = t2 - t1;
+      if (rtt < best.rtt) best = { offset: remote - (t1 + t2) / 2, rtt };
+    }
+    return best;
+  }
+
   async downloadFile(target: SSHTarget, remoteFile: string, localFile: string): Promise<void> {
     try {
       const conn = await this.getConnection(target);
       await conn.getFile(localFile, remoteFile);
       logger.info(`Downloaded ${keyOf(target)}:${remoteFile} -> ${localFile}`);
+    } catch (err) {
+      this.drop(target);
+      throw err;
+    }
+  }
+
+  async putFile(target: SSHTarget, localFile: string, remoteFile: string): Promise<void> {
+    try {
+      const conn = await this.getConnection(target);
+      await conn.putFile(localFile, remoteFile);
     } catch (err) {
       this.drop(target);
       throw err;

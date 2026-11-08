@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Settings, Camera, RotateCw } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import { useSelectedCamera } from '../store/cameraStore';
+import { isReady, notReadyReason } from './SyncBadge';
 import { AdvancedCaptureFields, defaultAdvanced, roiError, type AdvancedCaptureValue } from './AdvancedCaptureFields';
 
 interface CaptureSettings extends AdvancedCaptureValue {
@@ -124,11 +125,17 @@ export const PhotoCaptureSettings: React.FC<{
 
       <button
         onClick={handleCapture}
-        disabled={capturing || roiInvalid || camera.status !== 'online'}
+        disabled={capturing || roiInvalid || camera.status !== 'online' || !isReady(camera)}
         className="w-full mt-6 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 rounded-lg font-semibold text-white flex items-center justify-center gap-2 transition-colors"
       >
         <Camera className="w-5 h-5" />
-        {capturing ? '⏳ Fotografiere…' : camera.status === 'online' ? '📸 Foto aufnehmen' : `Kamera ${camera.status}`}
+        {capturing
+          ? '⏳ Fotografiere…'
+          : camera.status === 'recording'
+            ? 'Kamera nimmt Video auf'
+            : isReady(camera)
+              ? '📸 Foto aufnehmen'
+              : `Nicht bereit: ${notReadyReason(camera)}`}
       </button>
     </div>
   );

@@ -13,17 +13,27 @@ export class RecordingManager {
     setInterval(() => this.clearOldSessions(), 10 * 60 * 1000).unref();
   }
 
-  startSession(cameraId: string, cameraName: string, duration: number, filename: string, remoteFile: string): RecordingSession {
-    const session = {
+  startSession(
+    cameraId: string,
+    cameraName: string,
+    duration: number,
+    filename: string,
+    remoteFile: string,
+    extra: { startTime?: Date; audio?: boolean; groupId?: string } = {}
+  ): RecordingSession {
+    const startTime = extra.startTime ?? new Date();
+    const session: RecordingSession & { startTime: Date } = {
       id: uuidv4(),
       cameraId,
       cameraName,
-      startTime: new Date(),
+      startTime,
       duration,
       filename,
       remoteFile,
-      status: 'recording' as const,
-      progress: 0
+      status: startTime.getTime() > Date.now() ? 'waiting' : 'recording',
+      progress: 0,
+      audio: extra.audio,
+      groupId: extra.groupId
     };
     this.sessions.set(session.id, session);
     logger.info(`Recording session started: ${session.id}`, { cameraName, duration });
@@ -31,23 +41,29 @@ export class RecordingManager {
   }
 
   private withProgress(session: RecordingSession & { startTime: Date }): RecordingSession {
+    const elapsed = (Date.now() - session.startTime.getTime()) / 1000;
+    if (session.status === 'waiting' && elapsed >= 0) session.status = 'recording';
     if (session.status === 'recording') {
-      const elapsed = (Date.now() - session.startTime.getTime()) / 1000;
-      session.progress = Math.round(Math.min(100, (elapsed / session.duration) * 100));
+      session.progress = Math.round(Math.min(100, Math.max(0, (elapsed / session.duration) * 100)));
     }
     return session;
   }
 
+  update(sessionId: string, changes: Partial<Pick<RecordingSession, 'status' | 'warning' | 'startOffsetMs'>>) {
+    const s = this.sessions.get(sessionId);
+    if (s) Object.assign(s, changes);
+  }
+
   getActiveSession(cameraId: string): RecordingSession | null {
     for (const s of this.sessions.values()) {
-      if (s.cameraId === cameraId && (s.status === 'recording' || s.status === 'stopping')) return s;
+      if (s.cameraId === cameraId && ['waiting', 'recording', 'stopping'].includes(s.status)) return s;
     }
     return null;
   }
 
   markStopping(sessionId: string) {
     const s = this.sessions.get(sessionId);
-    if (s && s.status === 'recording') s.status = 'stopping';
+    if (s && (s.status === 'recording' || s.status === 'waiting')) s.status = 'stopping';
   }
 
   completeSession(sessionId: string) {

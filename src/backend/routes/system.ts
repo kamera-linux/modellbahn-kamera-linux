@@ -8,7 +8,21 @@ import type { DiagnosticResult } from '../../shared/types.js';
 export const systemRouter = express.Router();
 
 systemRouter.get('/status', (_req, res) => {
-  res.json(getCameraManager().sshManager.getStatus());
+  const manager = getCameraManager();
+  res.json({ ...manager.sshManager.getStatus(), scriptVersion: manager.scripts.version });
+});
+
+// Microphone of the manager host (AUDIO_INPUT)
+systemRouter.get('/audio', (_req, res) => {
+  res.json(getCameraManager().audio.status());
+});
+
+systemRouter.post('/audio/test', async (_req, res, next) => {
+  try {
+    res.json(await getCameraManager().audio.test(1));
+  } catch (err) {
+    next(err);
+  }
 });
 
 systemRouter.get('/devices', (_req, res) => {

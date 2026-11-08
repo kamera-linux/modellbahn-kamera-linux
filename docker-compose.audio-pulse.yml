@@ -1,0 +1,10 @@
+# Microphone of the host via PulseAudio / PipeWire (desktop or laptop).
+# Enable in .env:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.audio-pulse.yml
+#   AUDIO_INPUT=pulse:<source>     (list sources with: pactl list sources short)
+services:
+  manager:
+    environment:
+      PULSE_SERVER: unix:/run/pulse/native
+    volumes:
+      - ${XDG_RUNTIME_DIR:-/run/user/1000}/pulse/native:/run/pulse/native

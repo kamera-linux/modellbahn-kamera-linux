@@ -18,11 +18,19 @@ FROM node:20-trixie-slim
 ENV NODE_ENV=production
 WORKDIR /app
 
+# ffmpeg: microphone capture (PulseAudio/PipeWire or ALSA) and muxing audio into the videos
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/public ./public
+# Scripts for the camera cars – synced to every Pi automatically (ScriptSync)
+COPY scripts/camera_common.py scripts/camera-capture.py scripts/camera-record.py \
+     scripts/camera-selfcheck.py scripts/setup-rpi-zero.sh scripts/test-camera.sh ./scripts/
 
 # Runs as the unprivileged "node" user (uid 1000). config/ and data/ are bind mounts
 # and must be writable for that uid (see APP_UID in docker-compose.yml).

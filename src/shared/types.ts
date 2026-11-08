@@ -7,6 +7,16 @@ export type AutofocusMode = 'manual' | 'continuous' | 'auto';
 export type AutofocusRange = 'normal' | 'macro' | 'full';
 export type HdrMode = 'auto' | 'off';
 
+export interface ScriptSyncStatus {
+  state: 'unknown' | 'checking' | 'syncing' | 'ready' | 'error';
+  version?: string; // script bundle version on the manager
+  checkedAt?: string;
+  updatedAt?: string; // last time scripts were uploaded
+  error?: string;
+  warnings?: string[];
+  cameras?: string[]; // sensor models found by the self-check
+}
+
 export interface Camera {
   id: string;
   name: string;
@@ -17,6 +27,7 @@ export interface Camera {
   lastSeen?: string | Date;
   photoRotation: Rotation;
   videoRotation: Rotation;
+  sync: ScriptSyncStatus; // only "ready" cameras may capture/record
 }
 
 export interface CaptureOptions {
@@ -30,6 +41,27 @@ export interface CaptureOptions {
 
 export interface RecordingOptions extends CaptureOptions {
   duration?: number; // seconds
+  audio?: boolean; // add sound from the manager's microphone
+  fps?: number; // frames per second (default 30)
+}
+
+export interface GroupRecordingRequest extends RecordingOptions {
+  cameraIds?: string[]; // default: all cameras
+}
+
+export interface GroupRecordingResult {
+  groupId: string;
+  startAt: string; // ISO time all cars start at
+  started: Array<{ cameraId: string; cameraName: string; sessionId: string }>;
+  skipped: Array<{ cameraId: string; cameraName: string; reason: string }>;
+}
+
+export interface AudioStatus {
+  configured: boolean;
+  input: string | null;
+  recording: boolean;
+  users: number;
+  lastError?: string;
 }
 
 export interface RecordingSession {
@@ -40,9 +72,13 @@ export interface RecordingSession {
   duration: number; // seconds
   filename: string;
   remoteFile: string;
-  status: 'recording' | 'stopping' | 'completed' | 'failed';
+  status: 'waiting' | 'recording' | 'stopping' | 'processing' | 'completed' | 'failed';
   progress: number; // 0-100
   error?: string;
+  warning?: string; // e.g. audio could not be added – the video itself is fine
+  audio?: boolean;
+  groupId?: string; // set for "record all"
+  startOffsetMs?: number; // actual start minus planned start (synchronised start)
 }
 
 export interface CaptureSchedule extends CaptureOptions {

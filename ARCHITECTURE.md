@@ -50,7 +50,9 @@ Auf den Pis läuft kein eigener Dienst. Der Manager ruft per SSH die Python-Skri
 | `middleware/auth.ts` | HTTP Basic Auth (zeitkonstanter Vergleich), `/health` bleibt frei |
 | `services/SSHManager.ts` | Verbindungspool pro Ziel, parallele Verbindungsaufbauten werden zusammengeführt, TOFU-Host-Key-Prüfung (`data/known_hosts.json`) |
 | `services/CameraManager.ts` | Kameras aus `devices.json`, Statusprüfung alle 30 s (parallel, 5 s Timeout), Foto/Video, Sperre pro Kamera |
-| `services/RecordingManager.ts` | Aufnahme-Sessions und Fortschritt, räumt alte Sessions auf |
+| `services/RecordingManager.ts` | Aufnahme-Sessions (warten → aufnehmen → stoppen → Ton hinzufügen → fertig), räumt alte Sessions auf |
+| `services/ScriptSync.ts` | Kamera-Skripte auf die Pis verteilen (Versionsvergleich, Upload, Selbsttest) |
+| `services/AudioRecorder.ts` | Gemeinsame Mikrofon-Aufnahme per ffmpeg (Referenzzählung), Ton ins Video muxen |
 | `services/ScheduleManager.ts` | Zeitpläne mit echtem Intervall-Timer, persistiert in `data/schedules.json` |
 | `services/timeWindow.ts` | Zeitfenster-Logik (inkl. über Mitternacht) |
 | `routes/media.ts` | Gemeinsamer Router für Foto- und Video-Dateien: Liste, Inline-Ansicht, Download, Vorschaubild, Löschen |
@@ -74,6 +76,38 @@ Ein Kameramodul kann nur von einem Prozess gleichzeitig benutzt werden. `CameraM
 
 ## Abläufe
 
+### Nachbearbeitung jedes Videos (`videoFinalize.ts`)
+
+Die Pis schreiben die echten Sensor-Zeitstempel. Die schwanken minimal, und die Standard-Zeitbasis von PyAV (1/12288) kann 1/30 s nicht exakt darstellen. Schnittprogramme wie Kdenlive melden deshalb „variable Bildwiederholfrequenz“. Darum bearbeitet der Server jedes Video nach dem Download nach, ohne neu zu kodieren:
+
+1. `ffprobe` prüft die Bildabstände. Ein Bild gilt als verloren, wenn ein Abstand größer als 1,5 Bilddauern ist.
+2. Gehen keine Bilder verloren, wird der H.264-Strom als Rohdatenstrom neu verpackt, mit `-framerate 30` und Track-Zeitbasis 1/30. Jedes Bild dauert dann exakt einen Tick, und `avg_frame_rate = r_frame_rate = 30/1`. Das Rotations-Flag für 90°/270° wird dabei neu gesetzt.
+3. Optional kommt der Ton in einem eigenen Durchgang dazu. Ein Rohdatenstrom hat keine Paket-Zeitstempel, `-shortest` würde den Ton sonst auf null kürzen.
+4. Gehen Bilder verloren, bleiben die originalen Zeitstempel erhalten (variable Bildrate), damit Bild und Ton synchron bleiben. Die Session zeigt dann eine Warnung.
+
+Auf den Pis landen die Aufnahmen in `~/modellbahn-kamera-linux/tmp` auf der SD-Karte und nicht in `/tmp`. Dort ist unter Debian trixie ein RAM-Dateisystem mit etwa 200 MB auf dem Zero, das für längere Videos nicht reicht.
+
+### Skript-Abgleich und Status „bereit“
+
+```mermaid
+stateDiagram-v2
+    [*] --> unbekannt
+    unbekannt --> pruefe: Pi erreichbar
+    pruefe --> synchronisiere: .version weicht ab
+    synchronisiere --> pruefe: hochgeladen, .version geschrieben
+    pruefe --> bereit: Selbsttest ok
+    pruefe --> Fehler: Selbsttest/Upload fehlgeschlagen
+    bereit --> pruefe: alle 10 min (bleibt nutzbar)
+    Fehler --> pruefe: nach 2 min oder manuell
+    bereit --> unbekannt: offline
+    Fehler --> unbekannt: offline
+```
+
+- Die Version ist ein SHA-256 über Namen und Inhalt aller Pi-Skripte im Image (`scripts/`).
+- Beim Upload entstehen erst `.new`-Dateien, dann folgt das Umbenennen, `.version` kommt zuletzt. Bricht der Upload ab, bleibt die alte Version stehen, und der nächste Durchlauf wiederholt ihn.
+- Der Abgleich hält die Kamera-Sperre, er läuft also nie während einer Aufnahme.
+- Fotos, Videos, Zeitpläne und „Alle aufnehmen“ verlangen den Status `ready`. Andernfalls antwortet der Server mit `409` samt Grund, bzw. der Wagen wird übersprungen.
+
 ### Foto
 
 1. `POST /api/cameras/cam1/capture`: Body validieren
@@ -91,6 +125,34 @@ Ein Kameramodul kann nur von einem Prozess gleichzeitig benutzt werden. `CameraM
 5. Der Hintergrund-Job lädt Video und Vorschau herunter, markiert die Session als `completed` und setzt den Status wieder auf `online`.
 
 Harte Grenzen: Das Skript hat einen eigenen Alarm (`--timeout`). Zusätzlich beendet `timeout -k 10` den Prozess, falls er hängt.
+
+### Alle Kamerawagen gleichzeitig (mit Ton)
+
+1. `record/start-all` legt eine Startzeit fest (jetzt + `START_LEAD_SECONDS`, Standard 7 s) und startet für jeden erreichbaren Wagen eine Aufnahme. Offline-Wagen werden übersprungen und gemeldet.
+2. Mit Ton startet der `AudioRecorder` eine einzige ffmpeg-Aufnahme des Server-Mikrofons (PulseAudio/PipeWire oder ALSA). Sie bedient alle Wagen, gezählt wird per Referenz. Geschrieben wird rohes PCM, so lässt sich jeder Zeitabschnitt schon während der laufenden Aufnahme ausschneiden. Wann das erste Sample entstand, berechnet der Server aus der Datenmenge.
+3. Pro Wagen misst der `SSHManager` die Uhrabweichung Pi ↔ Server, NTP-artig über die Laufzeit von `date +%s.%N`. Die Startzeit wird in die Uhrzeit des Pis umgerechnet und als `--start-at` übergeben.
+4. `camera-record.py` bereitet Kamera und Encoder vor, wartet bis zur Startzeit und gibt die Zeit des ersten Bildes als `STARTED_AT=…` aus, ermittelt aus dem Sensor-Zeitstempel. Daraus berechnet der Server die Abweichung zum geplanten Start („Start +13 ms“ in der Oberfläche).
+5. Nach dem Download schneidet ffmpeg den passenden Abschnitt aus der Tonaufnahme und fügt ihn als AAC ein. Das Video wird kopiert, nicht neu kodiert, `+faststart` sorgt fürs Streaming. Das passiert erst, nachdem die Kamera wieder frei ist (siehe „Nachbearbeitung“).
+6. Der letzte Nutzer gibt das Mikrofon frei. Die Aufnahme endet, die temporäre Datei unter `data/audio-tmp/` wird gelöscht.
+
+Ton funktioniert genauso bei Einzelaufnahmen (`audio: true`).
+
+```mermaid
+sequenceDiagram
+    participant UI as Browser
+    participant M as Manager
+    participant Mic as Mikrofon (Server)
+    participant P as Pi (je Wagen)
+    UI->>M: POST /record/start-all {audio: true}
+    M->>Mic: ffmpeg-Aufnahme starten (einmal)
+    M->>P: date +%s.%N (Uhrabweichung)
+    M->>P: camera-record.py --start-at T
+    Note over P: Kamera vorbereiten, warten bis T
+    P-->>M: STARTED_AT=…, Video fertig
+    M->>P: SFTP-Download
+    M->>M: Tonabschnitt ausschneiden + muxen
+    M->>Mic: freigeben (letzter Nutzer stoppt)
+```
 
 ### Zeitplan
 

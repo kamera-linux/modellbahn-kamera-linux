@@ -1,0 +1,11 @@
+# Microphone of the host via ALSA (headless, e.g. Raspberry Pi 5 with USB microphone).
+# Enable in .env:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.audio-alsa.yml
+#   AUDIO_INPUT=alsa:plughw:1,0    (list devices with: arecord -l)
+#   AUDIO_GID=29                   (gid of the "audio" group on the host: getent group audio)
+services:
+  manager:
+    devices:
+      - /dev/snd:/dev/snd
+    group_add:
+      - "${AUDIO_GID:-29}"

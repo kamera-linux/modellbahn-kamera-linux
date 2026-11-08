@@ -1,12 +1,35 @@
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle, Zap, Terminal } from 'lucide-react';
 import { useCameraStore } from '../store/cameraStore';
+import { SyncBadge } from './SyncBadge';
 import { api, errorMessage, type Camera, type DiagnosticResult } from '../api/client';
 
 export const DiagnosticsPanel: React.FC = () => {
   const cameras = useCameraStore(state => state.cameras);
   const [results, setResults] = useState<Map<string, DiagnosticResult>>(new Map());
   const [loading, setLoading] = useState<Set<string>>(new Set());
+  const [syncing, setSyncing] = useState<Set<string>>(new Set());
+  const [syncError, setSyncError] = useState<Map<string, string>>(new Map());
+
+  const resync = async (camera: Camera) => {
+    setSyncing(prev => new Set(prev).add(camera.id));
+    setSyncError(prev => {
+      const m = new Map(prev);
+      m.delete(camera.id);
+      return m;
+    });
+    try {
+      await api.syncCamera(camera.id);
+    } catch (err) {
+      setSyncError(prev => new Map(prev).set(camera.id, errorMessage(err)));
+    } finally {
+      setSyncing(prev => {
+        const s = new Set(prev);
+        s.delete(camera.id);
+        return s;
+      });
+    }
+  };
 
   const testSSHConnection = async (camera: Camera) => {
     const key = camera.id;
@@ -67,6 +90,34 @@ export const DiagnosticsPanel: React.FC = () => {
             <p className="text-xs text-gray-400 mb-3">
               {camera.user}@{camera.host}:{camera.port}
             </p>
+
+            <div className="mb-3 p-2 bg-gray-800 rounded text-xs space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  Kamera-Skripte: <SyncBadge camera={camera} />
+                  {camera.sync?.state === 'ready' && camera.sync.version && <code className="text-gray-400">{camera.sync.version}</code>}
+                  {camera.status === 'offline' && <span className="text-gray-400">– Prüfung beim nächsten Verbinden</span>}
+                </span>
+                <button
+                  onClick={() => resync(camera)}
+                  disabled={camera.status !== 'online' || syncing.has(camera.id)}
+                  className="px-2 py-1 rounded bg-gray-600 hover:bg-gray-500 disabled:opacity-50"
+                >
+                  {syncing.has(camera.id) ? '⏳ Synchronisiere…' : 'Skripte synchronisieren'}
+                </button>
+              </div>
+              {camera.sync?.cameras?.length ? <p className="text-gray-400">Sensor: {camera.sync.cameras.join(', ')}</p> : null}
+              {camera.sync?.updatedAt && (
+                <p className="text-gray-400">Zuletzt aktualisiert: {new Date(camera.sync.updatedAt).toLocaleString('de-DE')}</p>
+              )}
+              {camera.sync?.error && <p className="text-red-300">❌ {camera.sync.error}</p>}
+              {camera.sync?.warnings?.map(w => (
+                <p key={w} className="text-yellow-300">
+                  ⚠️ {w}
+                </p>
+              ))}
+              {syncError.get(camera.id) && <p className="text-red-300">{syncError.get(camera.id)}</p>}
+            </div>
 
             {results.has(camera.id) && (
               (() => {

@@ -12,4 +12,4 @@ coverage/
 *.md
 *.log
 __pycache__/
-scripts/
+scripts/__pycache__/

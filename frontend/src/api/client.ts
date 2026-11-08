@@ -8,7 +8,10 @@ import type {
   RecordingSession,
   MediaFile,
   DiagnosticResult,
-  Rotation
+  Rotation,
+  GroupRecordingRequest,
+  GroupRecordingResult,
+  AudioStatus
 } from '@shared/types';
 
 export type {
@@ -20,7 +23,10 @@ export type {
   RecordingSession,
   MediaFile,
   DiagnosticResult,
-  Rotation
+  Rotation,
+  GroupRecordingRequest,
+  GroupRecordingResult,
+  AudioStatus
 };
 
 export type ScheduleInput = Omit<CaptureSchedule, 'id' | 'createdAt'>;
@@ -48,6 +54,9 @@ export const api = {
   startRecording: (id: string, options: RecordingOptions = {}) =>
     http.post<{ success: boolean; sessionId: string }>(`/cameras/${enc(id)}/record/start`, options),
   stopRecording: (id: string) => http.post(`/cameras/${enc(id)}/record/stop`),
+  syncCamera: (id: string) => http.post<Camera['sync']>(`/cameras/${enc(id)}/sync`),
+  startAll: (request: GroupRecordingRequest) => http.post<GroupRecordingResult>('/cameras/record/start-all', request),
+  stopAll: () => http.post<{ stopped: string[]; failed: Array<{ cameraId: string; reason: string }> }>('/cameras/record/stop-all'),
   updateRotation: (id: string, photoRotation?: Rotation, videoRotation?: Rotation) =>
     http.put(`/cameras/${enc(id)}/rotation`, { photoRotation, videoRotation }),
 
@@ -74,5 +83,7 @@ export const api = {
   // System
   getStatus: () => http.get('/system/status'),
   getDevices: () => http.get('/system/devices'),
+  getAudioStatus: () => http.get<AudioStatus>('/system/audio'),
+  testAudio: () => http.post<{ ok: boolean; maxVolumeDb?: number; error?: string }>('/system/audio/test'),
   testConnection: (cameraId: string) => http.post<DiagnosticResult>(`/system/cameras/${enc(cameraId)}/test`)
 };

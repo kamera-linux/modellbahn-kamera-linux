@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSelectedCamera } from '../store/cameraStore';
 import { api, errorMessage } from '../api/client';
 import type { AutofocusMode as AutofocusModeT, AutofocusRange as AutofocusRangeT, HdrMode as HdrT } from '@shared/types';
-import { Camera, Video, Square, Settings, RotateCw } from 'lucide-react';
+import { Camera, Video, Square, Settings, RotateCw, Mic } from 'lucide-react';
 import { RotationSettings } from './RotationSettings';
+import { isReady, notReadyReason } from './SyncBadge';
 import { AdvancedCaptureFields } from './AdvancedCaptureFields';
 
 interface CameraControlProps {
@@ -24,6 +25,12 @@ export const CameraControl: React.FC<CameraControlProps> = ({ onSuccess, onError
   const [autofocusRange, setAutofocusRange] = useState<AutofocusRangeT>('normal');
   const [hdr, setHdr] = useState<HdrT>('off');
   const [roi, setRoi] = useState('');
+  const [withAudio, setWithAudio] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
+
+  useEffect(() => {
+    api.getAudioStatus().then(r => setAudioReady(r.data.configured)).catch(() => setAudioReady(false));
+  }, []);
 
   if (!camera) {
     return (
@@ -35,6 +42,7 @@ export const CameraControl: React.FC<CameraControlProps> = ({ onSuccess, onError
 
   // Server-side status is the source of truth (refreshed every 5 s by CameraList).
   const recording = camera.status === 'recording';
+  const ready = isReady(camera);
   const advanced = { autofocusMode, autofocusRange, hdr, roi: roi || undefined };
 
   const run = async (action: () => Promise<unknown>, success: string, failure: string) => {
@@ -58,7 +66,7 @@ export const CameraControl: React.FC<CameraControlProps> = ({ onSuccess, onError
 
   const handleStartRecording = () =>
     run(
-      () => api.startRecording(camera.id, { duration: recordDuration * 60, resolution, ...advanced }),
+      () => api.startRecording(camera.id, { duration: recordDuration * 60, resolution, audio: withAudio && audioReady, ...advanced }),
       `Aufnahme auf ${camera.name} gestartet (${recordDuration} Minute${recordDuration > 1 ? 'n' : ''})`,
       'Aufnahme fehlgeschlagen'
     );
@@ -69,6 +77,12 @@ export const CameraControl: React.FC<CameraControlProps> = ({ onSuccess, onError
   return (
     <div className="card space-y-4">
       <h3 className="text-xl font-bold">Kontrolle: {camera.name}</h3>
+
+      {!ready && !recording && (
+        <div className="p-2 bg-gray-800 border border-yellow-600 rounded text-sm text-yellow-200">
+          Kamera nicht bereit: {notReadyReason(camera)}
+        </div>
+      )}
 
       {camera.videoRotation !== 0 && (
         <div className="p-2 bg-orange-900/30 border border-orange-600 rounded text-sm text-orange-200 flex items-center gap-2">
@@ -119,6 +133,12 @@ export const CameraControl: React.FC<CameraControlProps> = ({ onSuccess, onError
               disabled={loading}
               className="w-full disabled:opacity-50"
             />
+            {audioReady && (
+              <label className="mt-2 flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={withAudio} onChange={e => setWithAudio(e.target.checked)} className="w-4 h-4" />
+                <Mic className="w-4 h-4" /> Ton vom Mikrofon des Servers aufnehmen
+              </label>
+            )}
           </div>
         )}
 
@@ -150,7 +170,7 @@ export const CameraControl: React.FC<CameraControlProps> = ({ onSuccess, onError
       <div className="flex gap-2">
         <button
           onClick={handleCapture}
-          disabled={loading || recording}
+          disabled={loading || recording || !ready}
           className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <Camera className="w-4 h-4" />
@@ -160,7 +180,7 @@ export const CameraControl: React.FC<CameraControlProps> = ({ onSuccess, onError
         {!recording ? (
           <button
             onClick={handleStartRecording}
-            disabled={loading || camera.status === 'offline'}
+            disabled={loading || !ready}
             className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <Video className="w-4 h-4" />

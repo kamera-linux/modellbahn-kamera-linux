@@ -17,6 +17,10 @@ const wrap = (fn: Handler): express.RequestHandler => async (req, res, next) => 
 
 cameraRouter.get('/', wrap(() => getCameraManager().listCameras()));
 
+// Must be registered before '/:id' routes.
+cameraRouter.post('/record/start-all', validateBody(schemas.groupRecording), wrap(req => getCameraManager().startAll(req.body)));
+cameraRouter.post('/record/stop-all', wrap(() => getCameraManager().stopAll()));
+
 cameraRouter.get(
   '/:id',
   wrap(req => {
@@ -33,6 +37,8 @@ cameraRouter.post(
   validateBody(schemas.recording),
   wrap(req => getCameraManager().startRecording(req.params.id, req.body))
 );
+
+cameraRouter.post('/:id/sync', wrap(req => getCameraManager().syncCamera(req.params.id)));
 
 cameraRouter.post('/:id/record/stop', wrap(req => getCameraManager().stopRecording(req.params.id)));
 

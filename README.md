@@ -3,9 +3,12 @@
 Zentrale Web-Oberfläche für die Kamerawagen einer Modellbahn: mehrere Raspberry Pi Zero 2 W mit Kamera-Modul werden per SSH gesteuert. Der Manager läuft als Docker-Container auf einem PC (amd64) oder einem Raspberry Pi 5 (arm64).
 
 - 📸 Fotos und 🎥 Videos pro Kamera auslösen, Video-Aufnahmen vorzeitig stoppen
+- 🚂 Alle Kamerawagen gleichzeitig aufnehmen (synchroner Start, typ. < 30 ms Abweichung)
+- 🎤 Ton vom Mikrofon des Servers (Laptop oder Pi 5) automatisch in die Videos gemischt
 - ⏱️ Zeitpläne: alle 1–10 Minuten Fotos, optional nur in einem Zeitfenster (auch über Mitternacht), bleiben über Neustarts erhalten
 - 🔄 Rotation pro Kamera (getrennt für Foto/Video), ROI/Zoom, Autofokus und HDR (Camera Module 3)
 - 🗂️ Galerie mit Vorschaubildern, Großansicht für Fotos, Video-Player im Browser, herunterladen, löschen
+- 🔄 Automatischer Abgleich der Kamera-Skripte: Nur Wagen mit Status „bereit“ dürfen aufnehmen
 - 🔧 SSH-Diagnose mit Hinweisen zur Fehlerbehebung
 - 🔐 Login per HTTP Basic Auth, Host-Key-Pinning für die SSH-Verbindungen
 
@@ -38,15 +41,45 @@ Wichtige Einstellungen in `.env`:
 | `HOST_PORT` | Port der Weboberfläche auf dem Host (Standard 8000) |
 | `APP_UID` / `APP_GID` | Besitzer von `config/`, `data/` und dem Key (`id -u`, `id -g`) |
 | `SSH_HOST_KEY_CHECK` | `tofu` (Standard): Host-Key beim ersten Kontakt merken, Änderungen ablehnen |
+| `AUDIO_INPUT` | Mikrofon des Servers, z.B. `pulse:<quelle>` oder `alsa:plughw:1,0`. Leer = kein Ton |
+| `COMPOSE_FILE` | Für Ton zusätzlich `docker-compose.audio-pulse.yml` (Laptop/Desktop) oder `docker-compose.audio-alsa.yml` (Pi 5) laden |
+| `START_LEAD_SECONDS` | Vorlauf für „Alle aufnehmen“ (Standard 7 s) |
 
 ### 3. Kamerawagen einrichten
 
 ```bash
-make setup-cameras     # Skripte kopieren + Pakete installieren (sudo fragt nach dem Passwort)
-make deploy-cameras    # später: nur die Skripte aktualisieren
+make setup-cameras     # einmalig: Pakete installieren (sudo fragt nach dem Passwort)
 ```
 
-Die Kameras werden aus `config/devices.json` gelesen (`jq` wird benötigt). Auf den Pis landen nur die Kamera-Skripte unter `~/modellbahn-kamera-linux/scripts/`.
+Die Kameras werden aus `config/devices.json` gelesen (`jq` wird benötigt).
+
+Die Kamera-Skripte selbst verteilt der Manager automatisch. Sie stecken im Docker-Image und werden bei der ersten Verbindung, nach jedem Wiederverbinden und alle 10 Minuten mit dem Stand auf dem Pi verglichen (`~/modellbahn-kamera-linux/scripts/.version`). Bei Abweichung lädt der Manager sie hoch und lässt danach einen Selbsttest auf dem Pi laufen (`camera-selfcheck.py`: picamera2, Kamera erkannt, Pillow, PyAV, ffmpeg). Nur Wagen mit Status **bereit** dürfen Fotos und Videos aufnehmen. Der Status steht in der Kameraliste, Details und ein Knopf zum manuellen Synchronisieren in der Diagnose. `make deploy-cameras` ist nur noch für Sonderfälle nötig.
+
+### Optional: Mikrofon
+
+Der Ton kommt vom Rechner, auf dem der Manager läuft, und wird nach der Aufnahme in jedes Video gemischt.
+
+**Laptop/Desktop (PipeWire oder PulseAudio):**
+
+```bash
+pactl list sources short          # Name der Mikrofon-Quelle herausfinden
+# in .env:
+COMPOSE_FILE=docker-compose.yml:docker-compose.audio-pulse.yml
+AUDIO_INPUT=pulse:alsa_input.pci-0000_00_1f.3.analog-stereo
+```
+
+**Raspberry Pi 5 mit USB-Mikrofon (ALSA):**
+
+```bash
+arecord -l                        # Karte/Gerät, z.B. card 1, device 0
+getent group audio                # gid der audio-Gruppe
+# in .env:
+COMPOSE_FILE=docker-compose.yml:docker-compose.audio-alsa.yml
+AUDIO_INPUT=alsa:plughw:1,0
+AUDIO_GID=29
+```
+
+In der Oberfläche zeigt „Mikrofon testen“ den Pegel an. Liegt er bei 0 dB, ist der Eingang übersteuert: Eingangsverstärkung reduzieren, z.B. `pactl set-source-volume <quelle> 50%`.
 
 ### 4. Manager starten
 
@@ -87,8 +120,12 @@ Alle Endpunkte außer `/health` verlangen den Login, sofern `AUTH_PASSWORD` gese
 | GET | `/api/cameras` | Alle Kameras mit Status |
 | GET | `/api/cameras/:id` | Eine Kamera |
 | POST | `/api/cameras/:id/capture` | Foto: `{resolution, quality, autofocusMode, autofocusRange, hdr, roi}` |
-| POST | `/api/cameras/:id/record/start` | Video: wie oben + `duration` (Sekunden, 1–3600) |
+| POST | `/api/cameras/:id/record/start` | Video: wie oben + `duration` (Sekunden, 1–3600), `audio` (true/false) |
 | POST | `/api/cameras/:id/record/stop` | Laufende Aufnahme beenden (Datei bleibt gültig) |
+| POST | `/api/cameras/:id/sync` | Kamera-Skripte neu übertragen und Selbsttest ausführen |
+| POST | `/api/cameras/record/start-all` | Alle (oder `cameraIds`) gleichzeitig starten: `{duration, resolution, audio, …}` |
+| POST | `/api/cameras/record/stop-all` | Alle laufenden Aufnahmen beenden |
+| GET / POST | `/api/system/audio`, `/api/system/audio/test` | Mikrofon-Status / 1-s-Pegeltest |
 | PUT | `/api/cameras/:id/rotation` | `{photoRotation, videoRotation}` (0/90/180/270) |
 | GET/POST | `/api/schedules` | Zeitpläne auflisten / anlegen |
 | PUT/DELETE | `/api/schedules/:id` | Zeitplan ändern (z.B. `{enabled: true}`) / löschen |
