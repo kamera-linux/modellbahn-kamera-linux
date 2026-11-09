@@ -7,6 +7,8 @@ services:
   manager:
     environment:
       METRICS_PORT: "9464"
+      # Link "Monitoring" in the web interface
+      GRAFANA_PORT: ${GRAFANA_PORT:-3001}
     # Reachable for Prometheus inside the compose network only, not on the host.
     expose:
       - "9464"

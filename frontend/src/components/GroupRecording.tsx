@@ -2,12 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Video, Square, Mic, MicOff, Activity } from 'lucide-react';
 import { api, errorMessage, type AudioStatus, type GroupRecordingResult } from '../api/client';
 import { useCameraStore } from '../store/cameraStore';
+import { toast } from '../store/toastStore';
 import { isReady, notReadyReason } from './SyncBadge';
+import { DurationPicker, formatDuration } from './DurationPicker';
 
 /** Start/stop all camera cars at the same moment, optionally with sound from the manager's microphone. */
-export const GroupRecording: React.FC<{ onMessage: (type: 'success' | 'error', text: string) => void }> = ({ onMessage }) => {
+export const GroupRecording: React.FC = () => {
   const cameras = useCameraStore(state => state.cameras);
-  const [duration, setDuration] = useState(1); // minutes
+  const [duration, setDuration] = useState(60); // seconds
   const [resolution, setResolution] = useState('1920x1080');
   const [withAudio, setWithAudio] = useState(true);
   const [audio, setAudio] = useState<AudioStatus | null>(null);
@@ -22,7 +24,7 @@ export const GroupRecording: React.FC<{ onMessage: (type: 'success' | 'error', t
     return () => clearInterval(interval);
   }, []);
 
-  const online = cameras.filter(c => c.status === 'online' && isReady(c));
+  const ready = cameras.filter(c => c.status === 'online' && isReady(c));
   const notReady = cameras.filter(c => c.status === 'online' && !isReady(c));
   const recording = cameras.filter(c => c.status === 'recording');
   const audioReady = !!audio?.configured;
@@ -30,12 +32,12 @@ export const GroupRecording: React.FC<{ onMessage: (type: 'success' | 'error', t
   const startAll = async () => {
     try {
       setBusy(true);
-      const r = await api.startAll({ duration: duration * 60, resolution, audio: withAudio && audioReady });
+      const r = await api.startAll({ duration, resolution, audio: withAudio && audioReady });
       setResult(r.data);
       const names = r.data.started.map(s => s.cameraName).join(', ');
-      onMessage('success', `Gleichzeitiger Start um ${new Date(r.data.startAt).toLocaleTimeString('de-DE')}: ${names}`);
+      toast.success(`Gleichzeitiger Start um ${new Date(r.data.startAt).toLocaleTimeString('de-DE')} (${formatDuration(duration)}): ${names}`);
     } catch (err) {
-      onMessage('error', `Start fehlgeschlagen: ${errorMessage(err)}`);
+      toast.error(`Start fehlgeschlagen: ${errorMessage(err)}`);
     } finally {
       setBusy(false);
     }
@@ -45,9 +47,9 @@ export const GroupRecording: React.FC<{ onMessage: (type: 'success' | 'error', t
     try {
       setBusy(true);
       const r = await api.stopAll();
-      onMessage('success', `${r.data.stopped.length} Aufnahme(n) werden beendet`);
+      toast.success(`${r.data.stopped.length} Aufnahme(n) werden beendet`);
     } catch (err) {
-      onMessage('error', `Stopp fehlgeschlagen: ${errorMessage(err)}`);
+      toast.error(`Stopp fehlgeschlagen: ${errorMessage(err)}`);
     } finally {
       setBusy(false);
     }
@@ -64,15 +66,13 @@ export const GroupRecording: React.FC<{ onMessage: (type: 'success' | 'error', t
   };
 
   return (
-    <div className="card space-y-4">
-      <h3 className="text-xl font-bold flex items-center gap-2">
-        <Video className="w-5 h-5" /> Alle Kamerawagen
-      </h3>
-      <p className="text-sm text-gray-400">
-        Startet alle bereiten Wagen gleichzeitig ({online.length} bereit{recording.length ? `, ${recording.length} nehmen auf` : ''}).
+    <section className="panel">
+      <h2 className="panel-title">Alle Kamerawagen gleichzeitig</h2>
+      <p className="text-sm text-muted mb-4">
+        {ready.length} von {cameras.length} Wagen bereit{recording.length ? `, ${recording.length} nehmen auf` : ''}. Alle starten im selben Moment.
       </p>
       {notReady.length > 0 && (
-        <ul className="text-xs text-yellow-300 space-y-0.5">
+        <ul className="text-xs text-warn mb-3 space-y-0.5">
           {notReady.map(c => (
             <li key={c.id}>
               {c.name}: {notReadyReason(c)}
@@ -81,67 +81,60 @@ export const GroupRecording: React.FC<{ onMessage: (type: 'success' | 'error', t
         </ul>
       )}
 
-      <div>
-        <label className="block text-sm font-medium mb-2">
-          Dauer: {duration} Minute{duration > 1 ? 'n' : ''}
-        </label>
-        <input type="range" min="1" max="60" value={duration} onChange={e => setDuration(parseInt(e.target.value, 10))} disabled={busy} className="w-full" />
-      </div>
+      <div className="space-y-4">
+        <DurationPicker value={duration} onChange={setDuration} disabled={busy} />
+        <div className="space-y-4">
+          <div>
+            <label className="field-label">Auflösung</label>
+            <select value={resolution} onChange={e => setResolution(e.target.value)} disabled={busy} className="input">
+              <option value="1920x1080">1920×1080 (Full HD)</option>
+              <option value="1280x720">1280×720</option>
+            </select>
+          </div>
+          <div>
+            <label className={`flex items-center gap-2 text-sm mb-1.5 ${audioReady ? 'cursor-pointer' : 'opacity-60'}`}>
+              <input type="checkbox" checked={withAudio && audioReady} disabled={!audioReady || busy} onChange={e => setWithAudio(e.target.checked)} className="w-4 h-4" />
+              {audioReady ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+              Ton vom Mikrofon des Servers
+            </label>
+            <p className="text-xs text-muted break-all">
+              {audioReady ? (
+                <>
+                  {audio?.input}
+                  {audio?.recording && <span className="text-bad"> • nimmt auf</span>}
+                </>
+              ) : (
+                'Kein Mikrofon konfiguriert (AUDIO_INPUT in .env)'
+              )}
+            </p>
+            {audio?.lastError && <p className="text-xs text-warn">{audio.lastError}</p>}
+            {audioReady && (
+              <button onClick={testMic} className="btn-neutral btn-sm mt-2">
+                <Activity className="w-3 h-3" /> Mikrofon testen {level && <span className="text-muted">– {level}</span>}
+              </button>
+            )}
+          </div>
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-2">Auflösung</label>
-        <select value={resolution} onChange={e => setResolution(e.target.value)} disabled={busy} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
-          <option>1920x1080</option>
-          <option>1280x720</option>
-        </select>
-      </div>
-
-      <div className="bg-gray-800 border border-gray-700 rounded p-3 space-y-2">
-        <label className={`flex items-center gap-2 ${audioReady ? 'cursor-pointer' : 'opacity-60'}`}>
-          <input type="checkbox" checked={withAudio && audioReady} disabled={!audioReady || busy} onChange={e => setWithAudio(e.target.checked)} className="w-4 h-4" />
-          {audioReady ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-          <span className="text-sm">Ton vom Mikrofon des Servers</span>
-        </label>
-        <p className="text-xs text-gray-400 break-all">
-          {audioReady ? (
-            <>
-              {audio?.input}
-              {audio?.recording && <span className="text-red-400"> • nimmt auf</span>}
-            </>
-          ) : (
-            'Kein Mikrofon konfiguriert (AUDIO_INPUT in .env)'
-          )}
-        </p>
-        {audio?.lastError && <p className="text-xs text-yellow-300">{audio.lastError}</p>}
-        {audioReady && (
-          <button onClick={testMic} className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded inline-flex items-center gap-1">
-            <Activity className="w-3 h-3" /> Mikrofon testen {level && <span className="text-gray-300">– {level}</span>}
+        <div className="flex flex-wrap gap-2">
+          <button onClick={startAll} disabled={busy || ready.length === 0} className="btn-success">
+            <Video className="w-4 h-4" /> Alle aufnehmen
           </button>
+          <button onClick={stopAll} disabled={busy || recording.length === 0} className="btn-danger">
+            <Square className="w-4 h-4" /> Alle stoppen
+          </button>
+        </div>
+
+        {result && result.skipped.length > 0 && (
+          <ul className="text-xs text-warn space-y-1">
+            {result.skipped.map(s => (
+              <li key={s.cameraId}>
+                {s.cameraName} übersprungen: {s.reason}
+              </li>
+            ))}
+          </ul>
         )}
       </div>
-
-      <div className="flex gap-2">
-        <button onClick={startAll} disabled={busy || online.length === 0} className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
-          <Video className="w-4 h-4" /> Alle aufnehmen
-        </button>
-        <button
-          onClick={stopAll}
-          disabled={busy || recording.length === 0}
-          className="btn-secondary flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-50"
-        >
-          <Square className="w-4 h-4" /> Alle stoppen
-        </button>
-      </div>
-
-      {result && result.skipped.length > 0 && (
-        <ul className="text-xs text-yellow-300 space-y-1">
-          {result.skipped.map(s => (
-            <li key={s.cameraId}>
-              {s.cameraName} übersprungen: {s.reason}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    </section>
   );
 };

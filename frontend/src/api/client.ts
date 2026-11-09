@@ -11,7 +11,8 @@ import type {
   Rotation,
   GroupRecordingRequest,
   GroupRecordingResult,
-  AudioStatus
+  AudioStatus,
+  SystemInfo
 } from '@shared/types';
 
 export type {
@@ -26,7 +27,8 @@ export type {
   Rotation,
   GroupRecordingRequest,
   GroupRecordingResult,
-  AudioStatus
+  AudioStatus,
+  SystemInfo
 };
 
 export type ScheduleInput = Omit<CaptureSchedule, 'id' | 'createdAt'>;
@@ -81,6 +83,7 @@ export const api = {
   deletePhoto: (filename: string) => http.delete(`/photos/${enc(filename)}`),
 
   // System
+  getInfo: () => http.get<SystemInfo>('/system/info'),
   getStatus: () => http.get('/system/status'),
   getDevices: () => http.get('/system/devices'),
   getAudioStatus: () => http.get<AudioStatus>('/system/audio'),

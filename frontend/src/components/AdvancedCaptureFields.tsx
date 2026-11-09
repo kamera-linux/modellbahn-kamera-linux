@@ -26,7 +26,7 @@ export function roiError(roi: string): string | null {
   return null;
 }
 
-const selectClass = 'w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 disabled:opacity-50';
+const selectClass = 'input';
 
 /** Autofocus / HDR / ROI fields used by photo, video and schedule forms. */
 export const AdvancedCaptureFields: React.FC<{
@@ -38,9 +38,9 @@ export const AdvancedCaptureFields: React.FC<{
   const roiErr = roiError(value.roi);
 
   return (
-    <div className="space-y-3">
+    <div className="grid sm:grid-cols-2 gap-3">
       <div>
-        <label className="block text-sm font-medium mb-2">Autofokus-Modus</label>
+        <label className="field-label">Autofokus-Modus</label>
         <select value={value.autofocusMode} onChange={e => set('autofocusMode', e.target.value as AutofocusMode)} disabled={disabled} className={selectClass}>
           <option value="manual">Manuell (fest)</option>
           <option value="auto">Einmalig vor der Aufnahme</option>
@@ -49,7 +49,7 @@ export const AdvancedCaptureFields: React.FC<{
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">Autofokus-Bereich</label>
+        <label className="field-label">Autofokus-Bereich</label>
         <select value={value.autofocusRange} onChange={e => set('autofocusRange', e.target.value as AutofocusRange)} disabled={disabled} className={selectClass}>
           <option value="normal">Normal</option>
           <option value="macro">Makro (nah)</option>
@@ -58,24 +58,24 @@ export const AdvancedCaptureFields: React.FC<{
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-2">HDR</label>
+        <label className="field-label">HDR</label>
         <select value={value.hdr} onChange={e => set('hdr', e.target.value as HdrMode)} disabled={disabled} className={selectClass}>
           <option value="off">Aus</option>
           <option value="auto">An (nur Camera Module 3)</option>
         </select>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-2">ROI / Zoom (optional)</label>
+      <div className="sm:col-span-2">
+        <label className="field-label">Bildausschnitt / Zoom (ROI, optional)</label>
         <input
           type="text"
           placeholder="x,y,w,h – z.B. 0.25,0.25,0.5,0.5"
           value={value.roi}
           onChange={e => set('roi', e.target.value)}
           disabled={disabled}
-          className={`${selectClass} text-sm ${roiErr ? 'border-red-500' : ''}`}
+          className={`${selectClass} text-sm ${roiErr ? '!border-bad' : ''}`}
         />
-        <p className={`text-xs mt-1 ${roiErr ? 'text-red-400' : 'text-gray-400'}`}>
+        <p className={`text-xs mt-1 ${roiErr ? 'text-bad' : 'text-muted'}`}>
           {roiErr ?? 'Bildausschnitt, 0.0–1.0 pro Achse. Leer = ganzes Bild. Autofokus/HDR wirken nur, wenn die Kamera es unterstützt.'}
         </p>
       </div>

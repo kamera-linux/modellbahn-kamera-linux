@@ -59,10 +59,9 @@ export const DiagnosticsPanel: React.FC = () => {
   };
 
   return (
-    <div className="card">
-      <div className="flex items-center gap-2 mb-6">
-        <Terminal className="w-6 h-6" />
-        <h2 className="text-2xl font-bold">SSH-Diagnose</h2>
+    <section className="panel">
+      <div className="flex items-center gap-2">
+        <h2 className="panel-title"><Terminal className="w-4 h-4" /> Diagnose: SSH und Skripte</h2>
       </div>
 
       <p className="text-gray-400 text-sm mb-4">
@@ -71,7 +70,7 @@ export const DiagnosticsPanel: React.FC = () => {
 
       <div className="space-y-3">
         {cameras.map(camera => (
-          <div key={camera.id} className="bg-gray-700 p-4 rounded-lg">
+          <div key={camera.id} className="border border-line bg-bg p-4 rounded-lg">
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-semibold">{camera.name}</h3>
               <button
@@ -91,7 +90,7 @@ export const DiagnosticsPanel: React.FC = () => {
               {camera.user}@{camera.host}:{camera.port}
             </p>
 
-            <div className="mb-3 p-2 bg-gray-800 rounded text-xs space-y-1">
+            <div className="mb-3 p-2 border border-line rounded-lg text-xs space-y-1">
               <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2">
                   Kamera-Skripte: <SyncBadge camera={camera} />
@@ -101,7 +100,7 @@ export const DiagnosticsPanel: React.FC = () => {
                 <button
                   onClick={() => resync(camera)}
                   disabled={camera.status !== 'online' || syncing.has(camera.id)}
-                  className="px-2 py-1 rounded bg-gray-600 hover:bg-gray-500 disabled:opacity-50"
+                  className="btn-neutral btn-sm"
                 >
                   {syncing.has(camera.id) ? '⏳ Synchronisiere…' : 'Skripte synchronisieren'}
                 </button>
@@ -179,6 +178,6 @@ export const DiagnosticsPanel: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 };

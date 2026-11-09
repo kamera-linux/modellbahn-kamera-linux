@@ -2,65 +2,110 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Layout and controls in the style of the Vogel-Kamera interface */
+
 body {
-  @apply bg-gray-900 text-white;
+  @apply bg-bg text-fg antialiased;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-.card {
-  @apply bg-gray-800 border border-gray-700 rounded-lg p-6 shadow-lg;
-}
-
-.btn-primary {
-  @apply bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition;
-}
-
-.btn-secondary {
-  @apply bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition;
-}
-
-.status-online {
-  @apply bg-green-500;
-}
-
-.status-offline {
-  @apply bg-red-500;
-}
-
-.status-recording {
-  @apply bg-orange-500 animate-pulse;
-}
-
-/* Optimierungen nur für große Displays (1920x1080+) - Fernseher */
-@media (min-width: 1920px) {
-  /* Verhindere horizontales Scrollen */
-  html {
-    overflow-x: hidden;
+@layer components {
+  /* Section with an uppercase muted title */
+  .panel {
+    @apply bg-surface border border-line rounded-lg p-5;
   }
-  
-  body {
-    overflow-x: hidden;
-    margin: 0;
-    padding: 0;
+  .panel-title {
+    @apply text-sm font-semibold text-muted uppercase tracking-wider mb-4 flex items-center gap-2;
   }
-  
-  /* Stelle sicher, dass Container nicht überlaufen */
-  div[class*="grid"], 
-  div[class*="flex"] {
-    overflow-x: hidden;
+
+  /* Group heading above a row of status cards */
+  .group-label {
+    @apply text-[0.7rem] text-muted uppercase tracking-[0.08em] border-b border-line pb-1 mb-2 mt-1;
   }
-  
-  /* Optimiere Text-Wrapping für breite Displays */
-  .card h2, 
-  .card h3 {
-    word-break: break-word;
-    overflow-wrap: break-word;
+  .stat-card {
+    @apply bg-surface border border-line rounded-lg p-4;
   }
-  
-  /* Button-Text soll nicht abgeschnitten werden */
-  button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
+  .stat-label {
+    @apply text-xs text-muted mb-1;
   }
+  .stat-value {
+    @apply text-2xl font-semibold;
+  }
+
+  /* Kept for components that still use it */
+  .card {
+    @apply panel;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-opacity
+      disabled:opacity-45 disabled:cursor-not-allowed active:opacity-75;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-black hover:brightness-110;
+  }
+  .btn-success {
+    @apply btn bg-ok text-black hover:brightness-110;
+  }
+  .btn-danger {
+    @apply btn bg-bad text-white hover:brightness-110;
+  }
+  .btn-neutral,
+  .btn-secondary {
+    @apply btn bg-line text-fg hover:bg-gray-600;
+  }
+  .btn-sm {
+    @apply px-2.5 py-1 text-xs;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap;
+  }
+  .pill-green {
+    @apply pill bg-ok/15 text-ok;
+  }
+  .pill-red {
+    @apply pill bg-bad/15 text-bad;
+  }
+  .pill-yellow {
+    @apply pill bg-warn/15 text-warn;
+  }
+  .pill-blue {
+    @apply pill bg-accent/15 text-accent;
+  }
+  .pill-gray {
+    @apply pill bg-line text-muted;
+  }
+
+  .field-label {
+    @apply block text-sm text-muted mb-1.5;
+  }
+  .input {
+    @apply w-full bg-bg border border-line rounded-lg px-3 py-2 text-sm text-fg outline-none focus:border-accent disabled:opacity-50;
+  }
+
+  /* Tabs */
+  .tabs {
+    @apply flex gap-1 border-b border-line mb-4;
+  }
+  .tab {
+    @apply px-3 py-2 text-sm text-muted border-b-2 border-transparent -mb-px hover:text-fg flex items-center gap-1.5;
+  }
+  .tab-active {
+    @apply tab text-fg border-accent;
+  }
+
+  /* Quick choice chips (durations) */
+  .chip {
+    @apply px-2.5 py-1 rounded-full text-xs border border-line text-muted hover:text-fg hover:border-gray-500 disabled:opacity-45;
+  }
+  .chip-active {
+    @apply chip bg-accent/15 border-accent text-accent;
+  }
+}
+
+input[type='range'],
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: #58a6ff;
 }

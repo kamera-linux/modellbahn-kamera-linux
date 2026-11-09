@@ -8,6 +8,12 @@ const root = process.cwd();
 
 export const appConfig = {
   port: parseInt(process.env.PORT || process.env.WEB_PORT || '3000', 10),
+  // Link to Grafana in the web interface: full URL, or only the port (the browser then
+  // uses the host name it reached the manager with). Both empty = no link.
+  grafana: {
+    url: process.env.GRAFANA_URL || '',
+    port: parseInt(process.env.GRAFANA_PORT || '0', 10) || 0
+  },
   // Prometheus endpoint (GET /metrics) on its own port, without login. 0 = off.
   // In Docker this port is only reachable inside the compose network.
   metricsPort: parseInt(process.env.METRICS_PORT ?? '9464', 10),

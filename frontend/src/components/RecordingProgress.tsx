@@ -52,23 +52,25 @@ export const RecordingProgress: React.FC = () => {
   if (visible.length === 0) return null;
 
   return (
-    <div className="space-y-3">
+    <section className="panel">
+      <h2 className="panel-title">Laufende Aufnahmen</h2>
+      <div className="space-y-3">
       {visible.map(session => {
         const start = new Date(session.startTime).getTime();
         const elapsed = Math.min((now - start) / 1000, session.duration);
         const progress = session.status === 'completed' ? 100 : Math.max(0, Math.round((elapsed / session.duration) * 100));
         const active = ACTIVE.includes(session.status);
         const barColor =
-          session.status === 'failed' ? 'bg-red-500' : session.status === 'completed' ? 'bg-green-500' : 'bg-orange-500';
+          session.status === 'failed' ? 'bg-bad' : session.status === 'completed' ? 'bg-ok' : 'bg-accent';
 
         return (
-          <div key={session.id} className="card !p-4">
+          <div key={session.id} className="border border-line rounded-lg p-3 bg-bg">
             <div className="flex items-center justify-between mb-2 gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 {session.status === 'waiting' ? (
                   <Timer className="w-4 h-4 text-blue-400" />
                 ) : active ? (
-                  <RotateCw className="w-4 h-4 animate-spin text-orange-400" />
+                  <RotateCw className="w-4 h-4 animate-spin text-accent" />
                 ) : session.status === 'completed' ? (
                   <CheckCircle2 className="w-4 h-4 text-green-400" />
                 ) : (
@@ -83,7 +85,7 @@ export const RecordingProgress: React.FC = () => {
               </span>
             </div>
 
-            <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+            <div className="w-full bg-line rounded-full h-2 overflow-hidden">
               <div className={`${barColor} h-full transition-all duration-300`} style={{ width: `${progress}%` }} />
             </div>
 
@@ -110,6 +112,7 @@ export const RecordingProgress: React.FC = () => {
           </div>
         );
       })}
-    </div>
+      </div>
+    </section>
   );
 };

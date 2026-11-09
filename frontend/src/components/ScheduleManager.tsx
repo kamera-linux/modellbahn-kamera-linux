@@ -16,7 +16,7 @@ const emptyForm = (): ScheduleInput & { roi: string; startTime: string; endTime:
   endTime: ''
 });
 
-const inputClass = 'w-full bg-gray-600 border border-gray-500 rounded px-3 py-2';
+const inputClass = 'input';
 
 const formatTime = (iso?: string) =>
   iso ? new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '–';
@@ -113,29 +113,29 @@ export const ScheduleManager: React.FC = () => {
   const cameraName = (id: string) => cameras.find(c => c.id === id)?.name ?? id;
 
   return (
-    <div className="card">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <Clock className="w-6 h-6" />
-          Zeitpläne
+    <section className="panel">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="panel-title !mb-0">
+          <Clock className="w-4 h-4" />
+          Zeitpläne (Fotos in Abständen)
         </h2>
-        <button onClick={() => setShowForm(!showForm)} className="btn-primary flex items-center gap-2">
+        <button onClick={() => setShowForm(!showForm)} className="btn-neutral btn-sm">
           <Plus className="w-4 h-4" />
           Neu
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-900 text-red-100 p-3 rounded mb-4 flex justify-between gap-2">
+        <div className="bg-bad/10 border border-bad/40 p-3 rounded-lg mb-4 flex justify-between gap-2 text-sm">
           <span>{error}</span>
-          <button onClick={() => setError('')} className="text-red-300">
+          <button onClick={() => setError('')} className="text-muted hover:text-fg">
             ✕
           </button>
         </div>
       )}
 
       {showForm && (
-        <div className="bg-gray-700 p-4 rounded mb-4 space-y-3">
+        <div className="border border-line bg-bg p-4 rounded-lg mb-4 space-y-3">
           <input
             type="text"
             placeholder="Name des Zeitplans"
@@ -145,8 +145,8 @@ export const ScheduleManager: React.FC = () => {
           />
 
           <div>
-            <label className="block text-sm font-medium mb-2">Kameras</label>
-            <div className="space-y-2 bg-gray-600 p-3 rounded max-h-40 overflow-y-auto">
+            <label className="field-label">Kameras</label>
+            <div className="space-y-2 border border-line p-3 rounded-lg max-h-40 overflow-y-auto">
               {cameras.length === 0 ? (
                 <p className="text-gray-400 text-sm">Keine Kameras verfügbar</p>
               ) : (
@@ -164,7 +164,7 @@ export const ScheduleManager: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Intervall</label>
+            <label className="field-label">Intervall</label>
             <select value={form.interval} onChange={e => setForm({ ...form, interval: parseInt(e.target.value, 10) })} className={inputClass}>
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
                 <option key={i} value={i}>
@@ -176,18 +176,18 @@ export const ScheduleManager: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-2">Von (optional)</label>
+              <label className="field-label">Von (optional)</label>
               <input type="time" value={form.startTime} onChange={e => setForm({ ...form, startTime: e.target.value })} className={inputClass} />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Bis (optional)</label>
+              <label className="field-label">Bis (optional)</label>
               <input type="time" value={form.endTime} onChange={e => setForm({ ...form, endTime: e.target.value })} className={inputClass} />
             </div>
           </div>
           <p className="text-xs text-gray-400">Leer = ganztägig. Über Mitternacht geht auch, z.B. 22:00–02:00.</p>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Qualität: {form.quality}%</label>
+            <label className="field-label">Qualität: {form.quality}%</label>
             <input
               type="range"
               min="50"
@@ -200,16 +200,16 @@ export const ScheduleManager: React.FC = () => {
 
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="w-full flex items-center justify-center gap-2 text-sm bg-gray-600 hover:bg-gray-500 rounded px-3 py-2"
+            className="btn-neutral w-full"
           >
             <Settings className="w-4 h-4" />
             {showAdvanced ? 'Erweitert ausblenden' : 'Erweitert'}
           </button>
 
           {showAdvanced && (
-            <div className="space-y-3 p-3 bg-gray-800 rounded">
+            <div className="space-y-3 p-3 border border-line rounded-lg">
               <div>
-                <label className="block text-sm font-medium mb-2">Auflösung</label>
+                <label className="field-label">Auflösung</label>
                 <select value={form.resolution} onChange={e => setForm({ ...form, resolution: e.target.value })} className={inputClass}>
                   <option>1920x1080</option>
                   <option>2560x1440</option>
@@ -225,10 +225,10 @@ export const ScheduleManager: React.FC = () => {
           )}
 
           <div className="flex gap-2">
-            <button onClick={handleCreate} disabled={loading} className="btn-primary flex-1 disabled:opacity-50">
+            <button onClick={handleCreate} disabled={loading} className="btn-primary flex-1">
               Erstellen
             </button>
-            <button onClick={() => setShowForm(false)} className="btn-secondary flex-1">
+            <button onClick={() => setShowForm(false)} className="btn-neutral flex-1">
               Abbrechen
             </button>
           </div>
@@ -237,12 +237,12 @@ export const ScheduleManager: React.FC = () => {
 
       <div className="space-y-3">
         {schedules.length === 0 ? (
-          <p className="text-gray-400">Keine Zeitpläne</p>
+          <p className="text-muted text-sm">Keine Zeitpläne. Mit „Neu“ anlegen, z. B. alle 2 Minuten ein Foto von allen Wagen.</p>
         ) : (
           schedules.map(schedule => {
             const status = statuses.get(schedule.id);
             return (
-              <div key={schedule.id} className={`rounded-lg p-4 ${schedule.enabled ? 'bg-gray-700' : 'bg-gray-800 opacity-60'}`}>
+              <div key={schedule.id} className={`rounded-lg p-4 border border-line bg-bg ${schedule.enabled ? '' : 'opacity-60'}`}>
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1">
                     <h3 className="font-semibold">{schedule.name}</h3>
@@ -254,11 +254,11 @@ export const ScheduleManager: React.FC = () => {
                     <button
                       onClick={() => handleToggle(schedule)}
                       title={schedule.enabled ? 'Pausieren' : 'Starten'}
-                      className={`p-2 rounded ${schedule.enabled ? 'bg-green-600' : 'bg-gray-600'}`}
+                      className={`p-2 rounded-lg ${schedule.enabled ? 'bg-ok text-black' : 'bg-line'}`}
                     >
                       {schedule.enabled ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                     </button>
-                    <button onClick={() => handleDelete(schedule.id)} title="Löschen" className="p-2 rounded bg-red-600">
+                    <button onClick={() => handleDelete(schedule.id)} title="Löschen" className="p-2 rounded-lg bg-bad text-white">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -266,9 +266,9 @@ export const ScheduleManager: React.FC = () => {
 
                 {schedule.enabled && status && (
                   <div className="space-y-2">
-                    <div className="h-2 bg-gray-600 rounded overflow-hidden">
+                    <div className="h-2 bg-line rounded overflow-hidden">
                       <div
-                        className={`h-full ${status.inTimeWindow ? 'bg-gradient-to-r from-blue-500 to-cyan-400' : 'bg-gray-500'}`}
+                        className={`h-full ${status.inTimeWindow ? 'bg-accent' : 'bg-gray-500'}`}
                         style={{ width: `${status.progress}%`, transition: 'width 0.3s' }}
                       />
                     </div>
@@ -292,6 +292,6 @@ export const ScheduleManager: React.FC = () => {
           })
         )}
       </div>
-    </div>
+    </section>
   );
 };

@@ -184,9 +184,22 @@ sequenceDiagram
 
 ## Frontend (`frontend/`)
 
-Fotos und Videos zeigt die gemeinsame Komponente `MediaGallery`: Vorschaubilder im Raster, Klick öffnet die Großansicht (Foto oder Video-Player, ←/→ blättern, Esc schließt). Ältere Aufnahmen ohne Vorschaubild zeigt der Browser direkt (Foto verkleinert, Video mit dem Bild bei 0,5 s). Kann ein Browser kein H.264 abspielen, erscheint ein Hinweis mit Download-Knopf.
+Aufbau und Farben folgen der Oberfläche der Vogel-Kamera (GitHub-Dunkel, Tokens in `tailwind.config.js`, Bausteine wie `.panel`, `.stat-card`, `.pill-*`, `.btn-*` in `styles/global.css`). Von oben nach unten:
 
-React 18, Vite, Tailwind, Zustand. Die Typen kommen aus `src/shared/types.ts` (Alias `@shared`, nur `import type`). Der Kamerastatus wird alle 5 s abgefragt. Die ausgewählte Kamera wird über die ID aus dem Store gelesen, damit Status wie „recording“ immer aktuell sind.
+| Komponente | Inhalt |
+|---|---|
+| `Topbar` | Logo, Version, Zeit der letzten Statusabfrage, Links Monitoring (Grafana), Diagnose, Hilfe |
+| `StatusCards` | Übersicht (Wagen bereit, aktive Aufnahmen, Videos, Fotos) und eine Kachel pro Wagen. Klick wählt den Wagen aus; ohne Auswahl wird der erste bereite Wagen gewählt |
+| `RecordingProgress` | Laufende und gerade beendete Aufnahmen mit Fortschritt und Hinweisen |
+| `CameraPanel` | Der ausgewählte Wagen mit Reitern Video, Foto, Einstellungen (Drehung) – die einzige Stelle zum Auslösen eines einzelnen Wagens |
+| `GroupRecording` | Alle Wagen gleichzeitig, Ton, Mikrofontest |
+| `MediaSection` | Reiter Videos/Fotos, Filter nach Wagen, nach Tag gruppiert. Klick öffnet die Großansicht (←/→ blättern, Esc schließt). Ohne Vorschaubild zeigt der Browser die Datei direkt; kann er kein H.264 abspielen, erscheint ein Download-Knopf |
+| `ScheduleManager` | Foto-Zeitpläne |
+| `Toasts`, `HelpModal` | Meldungen unten rechts, Hilfe |
+
+Den Grafana-Link liefert `GET /api/system/info`: `GRAFANA_URL` (komplette Adresse) oder `GRAFANA_PORT`; dann baut der Browser `http://<aufgerufener Host>:<Port>/d/modellbahn-kamera`. Das Monitoring-Overlay setzt `GRAFANA_PORT` automatisch.
+
+React 18, Vite, Tailwind, Zustand. Die Typen kommen aus `src/shared/types.ts` (Alias `@shared`, nur `import type`). Kamerastatus (alle 5 s) und Medienliste (alle 10 s) werden einmal zentral in `Dashboard` abgefragt und über Stores (`cameraStore`, `mediaStore`) verteilt. Die ausgewählte Kamera wird über die ID aus dem Store gelesen, damit Status wie „recording“ immer aktuell sind.
 
 ## Tests
 

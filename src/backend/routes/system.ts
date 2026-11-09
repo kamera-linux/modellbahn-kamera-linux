@@ -7,6 +7,12 @@ import type { DiagnosticResult } from '../../shared/types.js';
 
 export const systemRouter = express.Router();
 
+/** Static facts for the web interface (Grafana link). */
+systemRouter.get('/info', (_req, res) => {
+  const { url, port } = appConfig.grafana;
+  res.json({ grafana: url || port ? { url: url || undefined, port: port || undefined, dashboard: '/d/modellbahn-kamera' } : null });
+});
+
 systemRouter.get('/status', (_req, res) => {
   const manager = getCameraManager();
   res.json({ ...manager.sshManager.getStatus(), scriptVersion: manager.scripts.version });

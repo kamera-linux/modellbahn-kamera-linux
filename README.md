@@ -94,7 +94,7 @@ COMPOSE_FILE=docker-compose.yml:docker-compose.audio-pulse.yml:docker-compose.mo
 GRAFANA_ADMIN_PASSWORD=<passwort>
 ```
 
-Nach `make up`: Grafana unter <http://localhost:3001> (Benutzer `admin`, Port über `GRAFANA_PORT`). Prometheus selbst ist nur lokal unter <http://127.0.0.1:9090> erreichbar. Die Daten bleiben 90 Tage bzw. bis 2 GB (`PROMETHEUS_RETENTION`, `PROMETHEUS_RETENTION_SIZE`).
+Nach `make up`: Grafana unter <http://localhost:3001> (Benutzer `admin`, Port über `GRAFANA_PORT`). In der Weboberfläche führt der Knopf **Monitoring** in der Kopfleiste direkt zum Dashboard. Läuft Grafana unter einer anderen Adresse (z. B. hinter einem Reverse Proxy), diese als `GRAFANA_URL` in `.env` eintragen. Prometheus selbst ist nur lokal unter <http://127.0.0.1:9090> erreichbar. Die Daten bleiben 90 Tage bzw. bis 2 GB (`PROMETHEUS_RETENTION`, `PROMETHEUS_RETENTION_SIZE`).
 
 Der Manager liefert die Metriken auf Port 9464 (`METRICS_PORT`, `0` = aus). Der Port ist nur im Compose-Netz sichtbar, nicht auf dem Host.
 

@@ -56,6 +56,11 @@ export interface GroupRecordingResult {
   skipped: Array<{ cameraId: string; cameraName: string; reason: string }>;
 }
 
+export interface SystemInfo {
+  /** Grafana link: full URL, or port on the host the browser reached the manager with. */
+  grafana: { url?: string; port?: number; dashboard: string } | null;
+}
+
 export interface AudioStatus {
   configured: boolean;
   input: string | null;

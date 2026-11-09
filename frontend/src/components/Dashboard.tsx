@@ -1,97 +1,65 @@
-import React, { useState } from 'react';
-import { CameraList } from './CameraList';
-import { CameraControl } from './CameraControl';
-import { ScheduleManager } from './ScheduleManager';
-import { DiagnosticsPanel } from './DiagnosticsPanel';
+import React, { useEffect, useState } from 'react';
+import { Topbar } from './Topbar';
+import { StatusCards } from './StatusCards';
 import { RecordingProgress } from './RecordingProgress';
-import { VideoManager } from './VideoManager';
-import { PhotoManager } from './PhotoManager';
-import { PhotoCaptureSettings } from './PhotoCaptureSettings';
 import { GroupRecording } from './GroupRecording';
-import { AlertCircle, CheckCircle } from 'lucide-react';
-import { useSelectedCamera } from '../store/cameraStore';
+import { CameraPanel } from './CameraPanel';
+import { ScheduleManager } from './ScheduleManager';
+import { MediaSection } from './MediaSection';
+import { DiagnosticsPanel } from './DiagnosticsPanel';
+import { HelpModal } from './HelpModal';
+import { Toasts } from './Toasts';
+import { useCameraStore } from '../store/cameraStore';
+import { useMediaStore } from '../store/mediaStore';
+
+/** Poll camera status and media list once for the whole page. */
+function usePolling() {
+  const refreshCameras = useCameraStore(s => s.refresh);
+  const refreshMedia = useMediaStore(s => s.refresh);
+  useEffect(() => {
+    void refreshCameras();
+    void refreshMedia();
+    const cams = setInterval(() => void refreshCameras(), 5000);
+    const media = setInterval(() => void refreshMedia(), 10000);
+    return () => {
+      clearInterval(cams);
+      clearInterval(media);
+    };
+  }, [refreshCameras, refreshMedia]);
+}
 
 export const Dashboard: React.FC = () => {
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
-  const selectedCamera = useSelectedCamera();
-
-  const showMessage = (type: 'success' | 'error', text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 5000);
-  };
+  const [showHelp, setShowHelp] = useState(false);
+  usePolling();
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
-      <header className="mb-8 flex flex-wrap justify-between items-start gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-4xl font-bold text-white flex items-center gap-3 sm:gap-4">
-            <img src="/logo-lok.webp" alt="" width={480} height={376} className="h-12 sm:h-16 w-auto shrink-0 drop-shadow-lg" />
-            Modellbahn Kamera Manager
-          </h1>
-          <p className="text-gray-400 mt-2">Zentrale Verwaltungsplattform</p>
-        </div>
-        <button
-          onClick={() => setShowDiagnostics(!showDiagnostics)}
-          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm text-gray-200 whitespace-nowrap"
-        >
-          {showDiagnostics ? '🔧 Diagnose ausblenden' : '🔧 Diagnose anzeigen'}
-        </button>
-      </header>
+    <div className="min-h-screen">
+      <Topbar diagnostics={showDiagnostics} onDiagnostics={() => setShowDiagnostics(!showDiagnostics)} onHelp={() => setShowHelp(true)} />
 
-      {message && (
-        <div
-          className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
-            message.type === 'success'
-              ? 'bg-green-900 text-green-100'
-              : 'bg-red-900 text-red-100'
-          }`}
-        >
-          {message.type === 'success' ? (
-            <CheckCircle className="w-5 h-5" />
-          ) : (
-            <AlertCircle className="w-5 h-5" />
-          )}
-          {message.text}
-        </div>
-      )}
+      <main className="max-w-6xl mx-auto p-3 sm:p-6 space-y-6">
+        {showDiagnostics && <DiagnosticsPanel />}
 
-      {showDiagnostics && (
-        <div className="mb-8 bg-gray-800 p-6 rounded-lg border border-gray-700">
-          <DiagnosticsPanel />
-        </div>
-      )}
+        <StatusCards />
+        <RecordingProgress />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-6">
-          <CameraList />
-          <GroupRecording onMessage={showMessage} />
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
+          <div className="lg:col-span-3">
+            <CameraPanel />
+          </div>
+          <div className="lg:col-span-2">
+            <GroupRecording />
+          </div>
         </div>
 
-        <div className="lg:col-span-2 space-y-6">
-          <RecordingProgress />
-          {selectedCamera && (
-            <PhotoCaptureSettings
-              onSuccess={(msg) => showMessage('success', msg)}
-              onError={(err) => showMessage('error', err)}
-            />
-          )}
-          <CameraControl
-            onSuccess={(msg) => showMessage('success', msg)}
-            onError={(err) => showMessage('error', err)}
-          />
-          <ScheduleManager />
-        </div>
-      </div>
+        <MediaSection />
+        <ScheduleManager />
+      </main>
 
-      <div className="mt-8 grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <VideoManager />
-        <PhotoManager />
-      </div>
+      <footer className="text-center text-muted text-xs py-8">Modellbahn Kamera Manager v{__APP_VERSION__}</footer>
 
-      <footer className="mt-12 text-center text-gray-500 text-sm">
-        <p>Modellbahn Kamera Manager v1.1.0</p>
-      </footer>
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      <Toasts />
     </div>
   );
 };
