@@ -7,12 +7,16 @@ Zentrale Web-Oberfläche für die Kamerawagen einer Modellbahn: mehrere Raspberr
 - 🎤 Ton vom Mikrofon des Servers (Laptop oder Pi 5) automatisch in die Videos gemischt
 - ⏱️ Zeitpläne: alle 1–10 Minuten Fotos, optional nur in einem Zeitfenster (auch über Mitternacht), bleiben über Neustarts erhalten
 - 🔄 Rotation pro Kamera (getrennt für Foto/Video), ROI/Zoom, Autofokus und HDR (Camera Module 3)
-- 🗂️ Galerie mit Vorschaubildern, Großansicht für Fotos, Video-Player im Browser, herunterladen, löschen
+- 🗂️ Galerie mit Vorschaubildern, nach Tag gruppiert und nach Wagen filterbar, Großansicht für Fotos, Video-Player im Browser
+- 🎞️ Videos mit konstanten 30 fps für Schnittprogramme wie Kdenlive; verlorene Bilder werden auf dem Server ausgeglichen
+- 📊 Optionales Monitoring mit Prometheus und Grafana, direkt aus der Oberfläche erreichbar
 - 🔄 Automatischer Abgleich der Kamera-Skripte: Nur Wagen mit Status „bereit“ dürfen aufnehmen
 - 🔧 SSH-Diagnose mit Hinweisen zur Fehlerbehebung
 - 🔐 Login per HTTP Basic Auth, Host-Key-Pinning für die SSH-Verbindungen
 
 Aufbau und Datenfluss: siehe [ARCHITECTURE.md](ARCHITECTURE.md).
+
+![Weboberfläche: Übersicht, Kamerawagen, Steuerung eines Wagens und aller Wagen gleichzeitig](docs/screenshots/oberflaeche.webp)
 
 ## Schnellstart
 
@@ -106,6 +110,8 @@ cp monitoring/prometheus/targets/pis.yml.example monitoring/prometheus/targets/p
 # IPs eintragen – Prometheus liest die Datei ohne Neustart ein
 ```
 
+![Grafana-Dashboard „Modellbahn Kamera“](docs/screenshots/grafana.webp)
+
 Das Dashboard liegt in `monitoring/grafana/dashboards/modellbahn.json`. Änderungen in der Grafana-Oberfläche gehen beim Neustart verloren; zum Behalten das Dashboard als JSON exportieren und dort ablegen.
 
 ### 4. Manager starten
@@ -123,6 +129,35 @@ make deploy-rpi5       # rsync + docker compose up -d --build auf raspberrypi-5-
 ```
 
 `.env`, `config/devices.json` und `data/` auf dem Ziel bleiben dabei unverändert.
+
+## Bedienung
+
+Die Oberfläche ist von oben nach unten aufgebaut:
+
+1. **Übersicht und Kamerawagen**: eine Kachel pro Wagen mit Status (online/offline/nimmt auf) und „bereit“. Ein Klick wählt den Wagen aus; beim Öffnen ist der erste bereite Wagen schon gewählt.
+2. **Laufende Aufnahmen** mit Fortschritt, Startversatz und Hinweisen, z. B. zu verlorenen Bildern.
+3. **Wagen** mit den Reitern Video, Foto und Einstellungen (Drehung) sowie **Alle Kamerawagen gleichzeitig**, beide mit Dauer-Schnellwahl von 10 s bis 60 min.
+4. **Aufnahmen**: Videos und Fotos nach Tag, filterbar nach Wagen.
+5. **Zeitpläne** für Fotos in festen Abständen.
+
+In der Kopfleiste öffnet **Monitoring** das Grafana-Dashboard, **Diagnose** testet die SSH-Verbindungen und Skripte, **Hilfe** erklärt alle Bereiche.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/wagen-foto.webp" alt="Reiter Foto eines Wagens mit erweiterten Einstellungen"></td>
+    <td width="50%"><img src="docs/screenshots/hilfe.webp" alt="Hilfe-Fenster"></td>
+  </tr>
+  <tr>
+    <td align="center">Foto-Reiter mit Autofokus, HDR und Bildausschnitt</td>
+    <td align="center">Hilfe</td>
+  </tr>
+</table>
+
+![Aufnahmen: Videos nach Tag gruppiert, Filter nach Wagen](docs/screenshots/aufnahmen.webp)
+
+Auf dem Handy stehen alle Bereiche untereinander, die Kopfleiste zeigt nur Symbole:
+
+<img src="docs/screenshots/mobil.webp" alt="Ansicht auf dem Handy" width="300">
 
 ## Daten
 
