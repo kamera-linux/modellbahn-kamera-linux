@@ -39,6 +39,11 @@ export const appConfig = {
   audioInput: process.env.AUDIO_INPUT || '',
   ffmpegPath: process.env.FFMPEG_PATH || 'ffmpeg',
   ffprobePath: process.env.FFPROBE_PATH || 'ffprobe',
+  // Recordings with lost frames: re-encode on the manager to a constant frame rate
+  // (missing pictures are repeated). "off" keeps them with a variable frame rate.
+  vfrReencode: (process.env.VFR_REENCODE || 'on') !== 'off',
+  videoCrf: parseInt(process.env.VIDEO_CRF || '18', 10),
+  videoPreset: process.env.VIDEO_PRESET || 'veryfast',
   // Lead time for a synchronised start of all cars (Python + camera init on a cold Pi Zero ~3-5 s)
   startLeadSeconds: parseFloat(process.env.START_LEAD_SECONDS || '7'),
 

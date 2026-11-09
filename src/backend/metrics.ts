@@ -40,6 +40,12 @@ export const metrics = {
     labelNames: ['camera'] as const,
     registers: [register]
   }),
+  reencodedRecordings: new client.Counter({
+    name: 'modellbahn_recordings_reencoded_total',
+    help: 'Recordings with lost frames that were re-encoded to a constant frame rate',
+    labelNames: ['camera'] as const,
+    registers: [register]
+  }),
   recordedSeconds: new client.Counter({
     name: 'modellbahn_recorded_seconds_total',
     help: 'Seconds of video recorded',
@@ -113,6 +119,7 @@ export function initCameraMetrics(cameraIds: string[]) {
     }
     metrics.droppedFrames.inc({ camera }, 0);
     metrics.vfrRecordings.inc({ camera }, 0);
+    metrics.reencodedRecordings.inc({ camera }, 0);
     metrics.recordedSeconds.inc({ camera }, 0);
     metrics.recordingBytes.zero({ camera });
     for (const kind of ['photo', 'video']) metrics.downloadSeconds.zero({ camera, kind });

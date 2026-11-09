@@ -44,6 +44,8 @@ Wichtige Einstellungen in `.env`:
 | `AUDIO_INPUT` | Mikrofon des Servers, z.B. `pulse:<quelle>` oder `alsa:plughw:1,0`. Leer = kein Ton |
 | `COMPOSE_FILE` | Für Ton zusätzlich `docker-compose.audio-pulse.yml` (Laptop/Desktop) oder `docker-compose.audio-alsa.yml` (Pi 5) laden |
 | `START_LEAD_SECONDS` | Vorlauf für „Alle aufnehmen“ (Standard 7 s) |
+| `VFR_REENCODE` | `on` (Standard): Videos mit verlorenen Bildern auf dem Manager auf konstante Bildrate neu kodieren. `off`: variable Bildrate behalten |
+| `VIDEO_CRF` / `VIDEO_PRESET` | Qualität und Tempo dieser Neukodierung (Standard `18` / `veryfast`) |
 | `GRAFANA_ADMIN_PASSWORD` | Nur mit Monitoring-Overlay: Passwort für Grafana (Benutzer `admin`) |
 
 ### 3. Kamerawagen einrichten

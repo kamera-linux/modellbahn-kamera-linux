@@ -416,19 +416,23 @@ export class CameraManager {
           const r = await finalizeVideo(appConfig.ffmpegPath, appConfig.ffprobePath, f.localFile, {
             fps: options.fps ?? 30,
             rotation: camera.videoRotation,
-            audio: withAudio
+            audio: withAudio,
+            reencode: appConfig.vfrReencode ? { crf: appConfig.videoCrf, preset: appConfig.videoPreset } : null
           });
           if (r.dropped > 0) {
             this.recordings.update(session.id, {
-              warning: `${r.dropped} Bild(er) verloren – Video behält variable Bildrate, damit Bild und Ton synchron bleiben`
+              warning: r.reencoded
+                ? `${r.dropped} Bild(er) verloren – durch Wiederholen des vorherigen Bildes ausgeglichen, Video hat konstante ${options.fps ?? 30} fps`
+                : `${r.dropped} Bild(er) verloren – Video behält variable Bildrate, damit Bild und Ton synchron bleiben`
             });
           }
           metrics.postprocessSeconds.observe({ camera: camera.id, result: 'ok' }, since(pp));
           metrics.droppedFrames.inc({ camera: camera.id }, r.dropped);
           metrics.lastDroppedFrames.set({ camera: camera.id }, r.dropped);
           if (!r.cfr) metrics.vfrRecordings.inc({ camera: camera.id });
+          if (r.reencoded) metrics.reencodedRecordings.inc({ camera: camera.id });
           metrics.recordedSeconds.inc({ camera: camera.id }, r.durationSeconds);
-          logger.info(`Finalized ${session.filename}`, { cfr: r.cfr, dropped: r.dropped, audio: !!withAudio });
+          logger.info(`Finalized ${session.filename}`, { cfr: r.cfr, reencoded: r.reencoded, dropped: r.dropped, audio: !!withAudio });
         } catch (err) {
           metrics.postprocessSeconds.observe({ camera: camera.id, result: 'failed' }, since(pp));
           logger.error(`Post-processing ${session.filename} failed`, err);

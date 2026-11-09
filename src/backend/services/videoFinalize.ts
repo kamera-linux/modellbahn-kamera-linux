@@ -25,6 +25,8 @@ export interface FinalizeOptions {
   fps: number;
   rotation: Rotation;
   audio?: { handle: AudioHandle; videoStartedAt: number };
+  /** Re-encode recordings with lost frames to a constant frame rate; null = keep them VFR. */
+  reencode?: { crf: number; preset: string } | null;
 }
 
 /**
@@ -40,6 +42,22 @@ export function buildCfrArgs(rawH264: string, out: string, o: { fps: number; rot
   if (o.rotation === 90 || o.rotation === 270) args.push('-display_rotation:v:0', String(-o.rotation));
   args.push('-framerate', String(o.fps), '-i', rawH264, '-map', '0:v:0', '-c:v', 'copy', '-video_track_timescale', String(o.fps), out);
   return args;
+}
+
+/**
+ * Constant frame rate for a recording with lost frames: the fps filter repeats the
+ * previous picture for every missing one, so the timeline (and the sound) stays
+ * exactly as recorded. Needs a re-encode – only used when frames were lost.
+ * ffmpeg's autorotate turns a 90/270 rotation flag into rotated pixels.
+ */
+export function buildReencodeArgs(video: string, out: string, o: { fps: number; crf: number; preset: string }): string[] {
+  return [
+    '-hide_banner', '-nostdin', '-loglevel', 'error', '-y',
+    '-i', video, '-map', '0:v:0',
+    '-vf', `fps=${o.fps}`,
+    '-c:v', 'libx264', '-preset', o.preset, '-crf', String(o.crf), '-pix_fmt', 'yuv420p',
+    '-video_track_timescale', String(o.fps), out
+  ];
 }
 
 /**
@@ -59,16 +77,18 @@ export function buildAudioMuxArgs(video: string, out: string, audio: NonNullable
 
 /**
  * Make a recording edit-friendly (constant frame rate, e.g. for Kdenlive) and add audio.
- * If frames were lost, the original timestamps are kept (variable frame rate) because
- * forcing a constant rate would shift picture against sound; audio is still added.
+ * Without lost frames the stream is only re-timed (no re-encode). With lost frames the
+ * gaps are filled by repeating the previous picture (re-encode, `reencode` option);
+ * if that is switched off the original timestamps are kept (variable frame rate),
+ * because simply forcing a constant rate would shift picture against sound.
  */
 export async function finalizeVideo(
   ffmpeg: string,
   ffprobe: string,
   video: string,
   o: FinalizeOptions
-): Promise<{ dropped: number; cfr: boolean; durationSeconds: number }> {
-  const run = (args: string[]) => execFileAsync(ffmpeg, args, { timeout: 10 * 60 * 1000 });
+): Promise<{ dropped: number; cfr: boolean; reencoded: boolean; durationSeconds: number }> {
+  const run = (args: string[], timeout = 10 * 60 * 1000) => execFileAsync(ffmpeg, args, { timeout });
   const { stdout } = await execFileAsync(
     ffprobe,
     ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'packet=pts_time', '-of', 'csv=p=0', video],
@@ -86,20 +106,26 @@ export async function finalizeVideo(
   const out = video.replace(/\.mp4$/, '.final.tmp.mp4');
   try {
     let source = video;
+    const reencoded = dropped > 0 && !!o.reencode;
     if (dropped === 0) {
       await run(['-hide_banner', '-nostdin', '-loglevel', 'error', '-y', '-i', video, '-map', '0:v:0', '-c', 'copy', '-bsf:v', 'h264_mp4toannexb', '-f', 'h264', raw]);
       await run(buildCfrArgs(raw, cfr, o));
       source = cfr;
+    } else if (o.reencode) {
+      // Slow machines (Pi 5) may need longer than real time for this.
+      await run(buildReencodeArgs(video, cfr, { fps: o.fps, ...o.reencode }), Math.max(10 * 60, durationSeconds * 4) * 1000);
+      source = cfr;
     }
+    const constant = dropped === 0 || reencoded;
     if (o.audio) {
-      await run(buildAudioMuxArgs(source, out, o.audio, dropped === 0 ? o.fps : undefined));
+      await run(buildAudioMuxArgs(source, out, o.audio, constant ? o.fps : undefined));
       renameSync(out, video);
     } else if (source !== video) {
       // faststart for browser streaming in the same go
       await run(['-hide_banner', '-nostdin', '-loglevel', 'error', '-y', '-i', source, '-c', 'copy', '-video_track_timescale', String(o.fps), '-movflags', '+faststart', out]);
       renameSync(out, video);
     }
-    return { dropped, cfr: dropped === 0, durationSeconds };
+    return { dropped, cfr: constant, reencoded, durationSeconds };
   } finally {
     for (const f of [raw, cfr, out]) if (existsSync(f)) unlinkSync(f);
   }

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { countDroppedFrames, buildCfrArgs, buildAudioMuxArgs } from './videoFinalize.js';
+import { execFileSync } from 'child_process';
+import { mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { countDroppedFrames, buildCfrArgs, buildAudioMuxArgs, buildReencodeArgs, finalizeVideo } from './videoFinalize.js';
 import { SAMPLE_RATE } from './AudioRecorder.js';
 
 const frames = (n: number, fps = 30, jitterMs = 0.04) =>
@@ -49,4 +53,71 @@ describe('buildAudioMuxArgs', () => {
     expect(args).not.toContain('-video_track_timescale');
     expect(args[args.indexOf('-af') + 1]).toBe('adelay=250:all=1');
   });
+});
+
+describe('buildReencodeArgs', () => {
+  it('fills gaps with the fps filter and re-encodes with x264', () => {
+    const a = buildReencodeArgs('/v.mp4', '/o.mp4', { fps: 30, crf: 18, preset: 'veryfast' }).join(' ');
+    expect(a).toContain('-i /v.mp4 -map 0:v:0 -vf fps=30');
+    expect(a).toContain('-c:v libx264 -preset veryfast -crf 18');
+    expect(a).toContain('-video_track_timescale 30 /o.mp4');
+  });
+});
+
+const hasFfmpeg = (() => {
+  try {
+    execFileSync('ffmpeg', ['-hide_banner', '-encoders'], { stdio: 'pipe' }).toString().includes('libx264');
+    execFileSync('ffprobe', ['-version'], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+describe.skipIf(!hasFfmpeg)('finalizeVideo with real ffmpeg', () => {
+  const probe = (f: string, entries: string, stream = 'v:0') =>
+    execFileSync('ffprobe', ['-v', 'error', '-select_streams', stream, '-show_entries', entries, '-of', 'csv=p=0', f]).toString().trim();
+
+  /** 2 s test video at 30 fps with frames 20-24 missing (timestamps kept), rotation flag 90°. */
+  const makeVfr = (dir: string) => {
+    const f = join(dir, 'vfr.mp4');
+    execFileSync('ffmpeg', [
+      '-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=320x240:rate=30:duration=2',
+      '-vf', "select='not(between(n,20,24))'", '-fps_mode', 'passthrough',
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-video_track_timescale', '90000', join(dir, 'tmp.mp4')
+    ]);
+    execFileSync('ffmpeg', ['-v', 'error', '-y', '-display_rotation:v:0', '-90', '-i', join(dir, 'tmp.mp4'), '-c', 'copy', f]);
+    return f;
+  };
+
+  it('re-encodes a recording with lost frames to a constant frame rate', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'finalize-'));
+    try {
+      const f = makeVfr(dir);
+      const r = await finalizeVideo('ffmpeg', 'ffprobe', f, { fps: 30, rotation: 90, reencode: { crf: 23, preset: 'ultrafast' } });
+      expect(r).toMatchObject({ dropped: 5, cfr: true, reencoded: true });
+      expect(r.durationSeconds).toBeCloseTo(2, 1);
+
+      const pts = probe(f, 'packet=pts_time').split('\n').map(Number).sort((a, b) => a - b);
+      expect(pts).toHaveLength(60); // gaps filled
+      expect(countDroppedFrames(pts, 30)).toBe(0);
+      expect(probe(f, 'stream=avg_frame_rate')).toBe('30/1');
+      // rotation flag turned into rotated pixels
+      expect(probe(f, 'stream=width,height')).toBe('240,320');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60000);
+
+  it('keeps the variable frame rate when re-encoding is off', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'finalize-'));
+    try {
+      const f = makeVfr(dir);
+      const r = await finalizeVideo('ffmpeg', 'ffprobe', f, { fps: 30, rotation: 90, reencode: null });
+      expect(r).toMatchObject({ dropped: 5, cfr: false, reencoded: false });
+      expect(probe(f, 'packet=pts_time').split('\n')).toHaveLength(55);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60000);
 });

@@ -80,12 +80,13 @@ Ein Kameramodul kann nur von einem Prozess gleichzeitig benutzt werden. `CameraM
 
 ### Nachbearbeitung jedes Videos (`videoFinalize.ts`)
 
-Die Pis schreiben die echten Sensor-Zeitstempel. Die schwanken minimal, und die Standard-Zeitbasis von PyAV (1/12288) kann 1/30 s nicht exakt darstellen. Schnittprogramme wie Kdenlive melden deshalb „variable Bildwiederholfrequenz“. Darum bearbeitet der Server jedes Video nach dem Download nach, ohne neu zu kodieren:
+Die Pis schreiben die echten Sensor-Zeitstempel. Die schwanken minimal, und die Standard-Zeitbasis von PyAV (1/12288) kann 1/30 s nicht exakt darstellen. Schnittprogramme wie Kdenlive melden deshalb „variable Bildwiederholfrequenz“. Darum bearbeitet der Server jedes Video nach dem Download nach. Das läuft auf dem Manager-Rechner, nicht auf dem Pi:
 
 1. `ffprobe` prüft die Bildabstände. Ein Bild gilt als verloren, wenn ein Abstand größer als 1,5 Bilddauern ist.
 2. Gehen keine Bilder verloren, wird der H.264-Strom als Rohdatenstrom neu verpackt, mit `-framerate 30` und Track-Zeitbasis 1/30. Jedes Bild dauert dann exakt einen Tick, und `avg_frame_rate = r_frame_rate = 30/1`. Das Rotations-Flag für 90°/270° wird dabei neu gesetzt.
 3. Optional kommt der Ton in einem eigenen Durchgang dazu. Ein Rohdatenstrom hat keine Paket-Zeitstempel, `-shortest` würde den Ton sonst auf null kürzen.
-4. Gehen Bilder verloren, bleiben die originalen Zeitstempel erhalten (variable Bildrate), damit Bild und Ton synchron bleiben. Die Session zeigt dann eine Warnung.
+4. Gehen Bilder verloren, wird das Video neu kodiert (`-vf fps=30`, libx264, `VIDEO_CRF` 18, `VIDEO_PRESET` veryfast). Für jedes fehlende Bild wird das vorherige wiederholt. Die Zeitachse bleibt dabei unverändert, Bild und Ton bleiben synchron, und das Ergebnis hat konstante 30 fps. Ein 90°/270°-Flag wird dabei zu gedrehten Pixeln. Auf einem Laptop dauert das etwa 1/10 der Videolänge, auf einem Pi 5 eher so lange wie das Video. Die Session zeigt einen Hinweis.
+5. Mit `VFR_REENCODE=off` bleiben bei verlorenen Bildern stattdessen die originalen Zeitstempel erhalten (variable Bildrate, keine Neukodierung).
 
 Auf den Pis landen die Aufnahmen in `~/modellbahn-kamera-linux/tmp` auf der SD-Karte und nicht in `/tmp`. Dort ist unter Debian trixie ein RAM-Dateisystem mit etwa 200 MB auf dem Zero, das für längere Videos nicht reicht.
 
