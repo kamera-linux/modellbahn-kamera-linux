@@ -108,7 +108,7 @@
             "uid": "prometheus"
           },
           "expr": "sum(modellbahn_camera_up)",
-          "legendFormat": "__auto",
+          "legendFormat": "erreichbar",
           "refId": "A",
           "range": false,
           "instant": true
@@ -503,33 +503,22 @@
               "options": {
                 "0": {
                   "text": "offline",
-                  "color": "red",
-                  "index": 0
+                  "color": "red"
                 },
                 "1": {
                   "text": "online",
-                  "color": "green",
-                  "index": 1
+                  "color": "green"
                 },
                 "2": {
                   "text": "nimmt auf",
-                  "color": "blue",
-                  "index": 2
+                  "color": "blue"
                 }
               }
             }
           ],
           "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              }
-            ]
+            "mode": "fixed",
+            "fixedColor": "red"
           },
           "custom": {
             "fillOpacity": 80,
@@ -624,7 +613,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max by (name) (modellbahn_camera_status_check_seconds)",
+          "expr": "(max by (camera) (modellbahn_camera_status_check_seconds)) * on (camera) group_left (name) (0 * max by (camera, name) (modellbahn_camera_up) + 1)",
           "legendFormat": "{{name}}",
           "refId": "A",
           "range": true,
@@ -846,8 +835,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (camera) (increase(modellbahn_ssh_command_seconds_count{outcome!=\"ok\"}[$__range]))",
-          "legendFormat": "{{camera}}",
+          "expr": "(sum by (camera) (increase(modellbahn_ssh_command_seconds_count{outcome!=\"ok\"}[$__range]))) * on (camera) group_left (name) (0 * max by (camera, name) (modellbahn_camera_up) + 1)",
+          "legendFormat": "{{name}}",
           "refId": "A",
           "range": false,
           "instant": true
@@ -869,8 +858,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Aufnahmen pro Stunde",
-      "description": "",
+      "title": "Aufnahmen",
+      "description": "Gespeicherte und fehlgeschlagene Videos aller Wagen je Zeitabschnitt (mindestens 5 min, bei langen Zeiträumen größer)",
       "id": 15,
       "datasource": {
         "type": "prometheus",
@@ -905,8 +894,23 @@
         "overrides": [
           {
             "matcher": {
-              "id": "byRegexp",
-              "options": ".*failed"
+              "id": "byName",
+              "options": "gespeichert"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "fehlgeschlagen"
             },
             "properties": [
               {
@@ -938,15 +942,25 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (camera, result) (increase(modellbahn_recordings_total[1h]))",
-          "legendFormat": "{{camera}} {{result}}",
+          "expr": "round(sum(increase(modellbahn_recordings_total{result=\"completed\"}[$__interval])))",
+          "legendFormat": "gespeichert",
           "refId": "A",
           "range": true,
-          "instant": false,
-          "interval": "1h"
+          "instant": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "round(sum(increase(modellbahn_recordings_total{result=\"failed\"}[$__interval])))",
+          "legendFormat": "fehlgeschlagen",
+          "refId": "B",
+          "range": true,
+          "instant": false
         }
       ],
-      "interval": "1h"
+      "interval": "5m"
     },
     {
       "type": "timeseries",
@@ -1006,8 +1020,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max by (camera) (modellbahn_recording_last_dropped_frames)",
-          "legendFormat": "{{camera}}",
+          "expr": "(max by (camera) (modellbahn_recording_last_dropped_frames)) * on (camera) group_left (name) (0 * max by (camera, name) (modellbahn_camera_up) + 1)",
+          "legendFormat": "{{name}}",
           "refId": "A",
           "range": true,
           "instant": false
@@ -1069,8 +1083,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum by (le, camera) (increase(modellbahn_download_seconds_bucket{kind=\"video\"}[1h]))) >= 0",
-          "legendFormat": "{{camera}}",
+          "expr": "(histogram_quantile(0.95, sum by (le, camera) (increase(modellbahn_download_seconds_bucket{kind=\"video\"}[1h]))) >= 0) * on (camera) group_left (name) (0 * max by (camera, name) (modellbahn_camera_up) + 1)",
+          "legendFormat": "{{name}}",
           "refId": "A",
           "range": true,
           "instant": false
@@ -1132,8 +1146,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum by (le, camera) (increase(modellbahn_postprocess_seconds_bucket[1h]))) >= 0",
-          "legendFormat": "{{camera}}",
+          "expr": "(histogram_quantile(0.95, sum by (le, camera) (increase(modellbahn_postprocess_seconds_bucket[1h]))) >= 0) * on (camera) group_left (name) (0 * max by (camera, name) (modellbahn_camera_up) + 1)",
+          "legendFormat": "{{name}}",
           "refId": "A",
           "range": true,
           "instant": false
@@ -1196,8 +1210,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (camera) (increase(modellbahn_recorded_seconds_total[$__range])) / 60",
-          "legendFormat": "{{camera}}",
+          "expr": "(sum by (camera) (increase(modellbahn_recorded_seconds_total[$__range])) / 60) * on (camera) group_left (name) (0 * max by (camera, name) (modellbahn_camera_up) + 1)",
+          "legendFormat": "{{name}}",
           "refId": "A",
           "range": false,
           "instant": true
@@ -1260,8 +1274,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (camera) (increase(modellbahn_recording_file_bytes_sum[$__range])) / (sum by (camera) (increase(modellbahn_recording_file_bytes_count[$__range])) > 0)",
-          "legendFormat": "{{camera}}",
+          "expr": "(sum by (camera) (increase(modellbahn_recording_file_bytes_sum[$__range])) / (sum by (camera) (increase(modellbahn_recording_file_bytes_count[$__range])) > 0)) * on (camera) group_left (name) (0 * max by (camera, name) (modellbahn_camera_up) + 1)",
+          "legendFormat": "{{name}}",
           "refId": "A",
           "range": false,
           "instant": true
