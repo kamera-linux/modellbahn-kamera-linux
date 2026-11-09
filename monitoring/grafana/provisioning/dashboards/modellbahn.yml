@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: Modellbahn
+    folder: Modellbahn
+    type: file
+    # Changes made in the Grafana UI are kept until the next restart; to keep them,
+    # export the dashboard as JSON into monitoring/grafana/dashboards/.
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards

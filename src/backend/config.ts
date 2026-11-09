@@ -8,6 +8,9 @@ const root = process.cwd();
 
 export const appConfig = {
   port: parseInt(process.env.PORT || process.env.WEB_PORT || '3000', 10),
+  // Prometheus endpoint (GET /metrics) on its own port, without login. 0 = off.
+  // In Docker this port is only reachable inside the compose network.
+  metricsPort: parseInt(process.env.METRICS_PORT ?? '9464', 10),
   configDir: resolve(process.env.CONFIG_DIR || join(root, 'config')),
   dataDir: resolve(process.env.DATA_DIR || join(root, 'data')),
   logLevel: process.env.LOG_LEVEL || 'info',

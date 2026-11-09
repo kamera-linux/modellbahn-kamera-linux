@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Modellbahn Kamera Manager: cameras, recordings, storage, API, Node.js process.
+  # Port 9464 is only reachable inside the compose network (METRICS_PORT).
+  - job_name: kamera-manager
+    static_configs:
+      - targets: ['manager:9464']
+
+  # Optional: system metrics of the camera cars (prometheus-node-exporter on the Pis).
+  # Copy targets/pis.yml.example to targets/pis.yml and enter the IPs; changes are
+  # picked up without a restart.
+  - job_name: pis
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    file_sd_configs:
+      - files: ['/etc/prometheus/targets/*.yml']

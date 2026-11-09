@@ -4,6 +4,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { logger } from '../utils/logger.js';
 import { appConfig, paths } from '../config.js';
+import { metrics, since } from '../metrics.js';
 
 export interface SSHTarget {
   host: string;
@@ -80,6 +81,8 @@ export class SSHManager {
   private pending = new Map<string, Promise<NodeSSH>>();
   private knownHosts = new KnownHosts(paths.knownHostsFile);
   private privateKey: string | null = null;
+  /** Metric label for a target; CameraManager maps it to the camera id. */
+  labelFor: (target: SSHTarget) => string = t => t.host;
 
   private loadKey(): string {
     if (this.privateKey === null) {
@@ -138,9 +141,13 @@ export class SSHManager {
     command: string,
     opts: { allowFailure?: boolean; readyTimeout?: number } = {}
   ): Promise<ExecResult> {
+    const start = process.hrtime.bigint();
+    const observe = (outcome: 'ok' | 'failed' | 'timeout' | 'connection') =>
+      metrics.sshCommandSeconds.observe({ camera: this.labelFor(target), outcome }, since(start));
     try {
       const conn = await this.getConnection(target, opts.readyTimeout);
       const result = await conn.execCommand(command);
+      observe(result.code === 0 ? 'ok' : result.code === 124 ? 'timeout' : 'failed');
       if (result.code !== 0 && !opts.allowFailure) {
         const reason = result.code === 124 ? 'Zeitüberschreitung' : summarizeStderr(result.stderr, result.stdout);
         throw new Error(`Command failed (exit ${result.code}): ${reason}`);
@@ -149,6 +156,7 @@ export class SSHManager {
     } catch (err) {
       // Connection-level errors: drop the cached connection so the next call reconnects.
       if (!(err instanceof Error && err.message.startsWith('Command failed'))) {
+        observe('connection');
         this.drop(target);
       }
       throw err;

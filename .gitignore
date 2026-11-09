@@ -23,3 +23,6 @@ data/
 __pycache__/
 .pytest_cache/
 venv/
+
+# monitoring: local scrape targets with real IPs
+monitoring/prometheus/targets/*.yml

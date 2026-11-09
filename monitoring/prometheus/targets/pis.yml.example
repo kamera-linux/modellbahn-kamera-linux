@@ -1,0 +1,15 @@
+# node_exporter on the camera cars. Copy to pis.yml (not committed) and adjust.
+# Install on each Pi:  sudo apt install prometheus-node-exporter
+# The labels "camera" and "name" should match config/devices.json.
+- targets: ['192.168.1.101:9100']
+  labels:
+    camera: cam1
+    name: Kamerawagen-1
+- targets: ['192.168.1.102:9100']
+  labels:
+    camera: cam2
+    name: Kamerawagen-2
+- targets: ['192.168.1.103:9100']
+  labels:
+    camera: cam3
+    name: Kamerawagen-3

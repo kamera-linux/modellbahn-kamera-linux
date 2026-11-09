@@ -62,7 +62,12 @@ export function buildAudioMuxArgs(video: string, out: string, audio: NonNullable
  * If frames were lost, the original timestamps are kept (variable frame rate) because
  * forcing a constant rate would shift picture against sound; audio is still added.
  */
-export async function finalizeVideo(ffmpeg: string, ffprobe: string, video: string, o: FinalizeOptions): Promise<{ dropped: number; cfr: boolean }> {
+export async function finalizeVideo(
+  ffmpeg: string,
+  ffprobe: string,
+  video: string,
+  o: FinalizeOptions
+): Promise<{ dropped: number; cfr: boolean; durationSeconds: number }> {
   const run = (args: string[]) => execFileAsync(ffmpeg, args, { timeout: 10 * 60 * 1000 });
   const { stdout } = await execFileAsync(
     ffprobe,
@@ -71,6 +76,10 @@ export async function finalizeVideo(ffmpeg: string, ffprobe: string, video: stri
   );
   const pts = stdout.split('\n').map(Number).filter(n => Number.isFinite(n) && n >= 0);
   const dropped = countDroppedFrames(pts, o.fps);
+  // reduce instead of Math.max(...pts): long videos have too many frames for spread arguments
+  const durationSeconds = pts.length
+    ? pts.reduce((a, b) => Math.max(a, b)) - pts.reduce((a, b) => Math.min(a, b)) + 1 / o.fps
+    : 0;
 
   const raw = video.replace(/\.mp4$/, '.tmp.h264');
   const cfr = video.replace(/\.mp4$/, '.cfr.tmp.mp4');
@@ -90,7 +99,7 @@ export async function finalizeVideo(ffmpeg: string, ffprobe: string, video: stri
       await run(['-hide_banner', '-nostdin', '-loglevel', 'error', '-y', '-i', source, '-c', 'copy', '-video_track_timescale', String(o.fps), '-movflags', '+faststart', out]);
       renameSync(out, video);
     }
-    return { dropped, cfr: dropped === 0 };
+    return { dropped, cfr: dropped === 0, durationSeconds };
   } finally {
     for (const f of [raw, cfr, out]) if (existsSync(f)) unlinkSync(f);
   }

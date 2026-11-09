@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, renameSync, statSync } from 'fs';
 import { join } from 'path';
 import { SSHManager, SSHTarget } from './SSHManager.js';
 import { RecordingManager } from './RecordingManager.js';
@@ -10,6 +10,7 @@ import { HttpError } from '../validation.js';
 import { AudioRecorder, AudioHandle, parseAudioInput } from './AudioRecorder.js';
 import { finalizeVideo } from './videoFinalize.js';
 import { ScriptSync } from './ScriptSync.js';
+import { metrics, since, initCameraMetrics } from '../metrics.js';
 import type {
   Camera,
   CaptureOptions,
@@ -103,6 +104,9 @@ export class CameraManager {
     mkdirSync(paths.photoThumbsDir, { recursive: true });
     mkdirSync(paths.videoThumbsDir, { recursive: true });
     this.loadCameras();
+    initCameraMetrics(Array.from(this.cameras.keys()));
+    this.ssh.labelFor = t =>
+      Array.from(this.cameras.values()).find(c => c.host === t.host && c.port === t.port)?.id ?? t.host;
     setInterval(() => void this.updateAllCameraStatuses(), 30000).unref();
     void this.updateAllCameraStatuses();
   }
@@ -163,7 +167,10 @@ export class CameraManager {
     try {
       await Promise.all(
         Array.from(this.cameras.values()).map(async camera => {
+          const start = process.hrtime.bigint();
           const result = await this.ssh.testConnection(target(camera), appConfig.ssh.statusTimeoutMs);
+          metrics.statusChecks.inc({ camera: camera.id, result: result.success ? 'ok' : 'failed' });
+          if (result.success) metrics.statusCheckSeconds.set({ camera: camera.id }, since(start));
           if (result.success) {
             if (camera.status !== 'recording') camera.status = 'online';
             camera.lastSeen = new Date();
@@ -183,6 +190,11 @@ export class CameraManager {
 
   listCameras(): Camera[] {
     return Array.from(this.cameras.values());
+  }
+
+  /** Sessions that are waiting, recording, stopping or being post-processed. */
+  activeRecordingCount(): number {
+    return this.recordings.getAllSessions().filter(s => s.status !== 'completed' && s.status !== 'failed').length;
   }
 
   getCamera(id: string): Camera | null {
@@ -276,10 +288,16 @@ export class CameraManager {
 
       try {
         await this.ssh.exec(target(camera), buildCaptureCommand(remoteFile, options, camera.photoRotation, remoteThumb));
+        const dl = process.hrtime.bigint();
         await this.ssh.downloadFile(target(camera), remoteFile, localFile);
+        metrics.downloadSeconds.observe({ camera: cameraId, kind: 'photo' }, since(dl));
         await this.downloadThumbnail(camera, remoteThumb, thumbFor(paths.photoThumbsDir, filename));
+        metrics.captures.inc({ camera: cameraId, result: 'completed' });
         logger.info(`Image captured from ${cameraId}`, { file: filename });
         return { success: true, cameraId, timestamp: new Date(), file: filename, options };
+      } catch (err) {
+        metrics.captures.inc({ camera: cameraId, result: 'failed' });
+        throw err;
       } finally {
         this.ssh.exec(target(camera), buildCommand('rm -f', [remoteFile, remoteThumb]), { allowFailure: true }).catch(() => undefined);
       }
@@ -369,10 +387,13 @@ export class CameraManager {
           }
         }
 
+        const dl = process.hrtime.bigint();
         await this.ssh.downloadFile(target(camera), f.remoteFile, f.localFile);
+        metrics.downloadSeconds.observe({ camera: camera.id, kind: 'video' }, since(dl));
         await this.downloadThumbnail(camera, f.remoteThumb, thumbFor(paths.videoThumbsDir, session.filename));
         ok = true;
       } catch (err) {
+        metrics.recordings.inc({ camera: camera.id, result: 'failed' });
         this.recordings.failSession(session.id, (err as Error).message);
       } finally {
         camera.status = 'online';
@@ -390,6 +411,7 @@ export class CameraManager {
         }
         const withAudio = handle && videoStartedAt !== null ? { handle, videoStartedAt } : undefined;
         this.recordings.update(session.id, { status: 'processing' });
+        const pp = process.hrtime.bigint();
         try {
           const r = await finalizeVideo(appConfig.ffmpegPath, appConfig.ffprobePath, f.localFile, {
             fps: options.fps ?? 30,
@@ -401,8 +423,14 @@ export class CameraManager {
               warning: `${r.dropped} Bild(er) verloren – Video behält variable Bildrate, damit Bild und Ton synchron bleiben`
             });
           }
+          metrics.postprocessSeconds.observe({ camera: camera.id, result: 'ok' }, since(pp));
+          metrics.droppedFrames.inc({ camera: camera.id }, r.dropped);
+          metrics.lastDroppedFrames.set({ camera: camera.id }, r.dropped);
+          if (!r.cfr) metrics.vfrRecordings.inc({ camera: camera.id });
+          metrics.recordedSeconds.inc({ camera: camera.id }, r.durationSeconds);
           logger.info(`Finalized ${session.filename}`, { cfr: r.cfr, dropped: r.dropped, audio: !!withAudio });
         } catch (err) {
+          metrics.postprocessSeconds.observe({ camera: camera.id, result: 'failed' }, since(pp));
           logger.error(`Post-processing ${session.filename} failed`, err);
           this.recordings.update(session.id, {
             warning: `Nachbearbeitung fehlgeschlagen (${withAudio ? 'ohne Ton, ' : ''}variable Bildrate): ${(err as Error).message.slice(0, 200)}`
@@ -410,6 +438,12 @@ export class CameraManager {
         }
       }
       if (ok) {
+        try {
+          metrics.recordingBytes.observe({ camera: camera.id }, statSync(f.localFile).size);
+        } catch {
+          // file vanished (deleted right away) – size unknown
+        }
+        metrics.recordings.inc({ camera: camera.id, result: 'completed' });
         this.recordings.completeSession(session.id);
         logger.info(`Recording finished: ${session.filename}`);
       }

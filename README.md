@@ -44,6 +44,7 @@ Wichtige Einstellungen in `.env`:
 | `AUDIO_INPUT` | Mikrofon des Servers, z.B. `pulse:<quelle>` oder `alsa:plughw:1,0`. Leer = kein Ton |
 | `COMPOSE_FILE` | Für Ton zusätzlich `docker-compose.audio-pulse.yml` (Laptop/Desktop) oder `docker-compose.audio-alsa.yml` (Pi 5) laden |
 | `START_LEAD_SECONDS` | Vorlauf für „Alle aufnehmen“ (Standard 7 s) |
+| `GRAFANA_ADMIN_PASSWORD` | Nur mit Monitoring-Overlay: Passwort für Grafana (Benutzer `admin`) |
 
 ### 3. Kamerawagen einrichten
 
@@ -80,6 +81,30 @@ AUDIO_GID=29
 ```
 
 In der Oberfläche zeigt „Mikrofon testen“ den Pegel an. Liegt er bei 0 dB, ist der Eingang übersteuert: Eingangsverstärkung reduzieren, z.B. `pactl set-source-volume <quelle> 50%`.
+
+### Optional: Monitoring (Prometheus + Grafana)
+
+Prometheus sammelt alle 15 s die Messwerte des Managers, Grafana zeigt sie im Dashboard **Modellbahn Kamera**: Erreichbarkeit und SSH-Antwortzeit der Wagen, Aufnahmen pro Stunde, fehlgeschlagene Aufnahmen, verlorene Frames je Aufnahme, Download- und Nachbearbeitungsdauer, Speicherplatz, API-Anfragen sowie Arbeitsspeicher und CPU des Managers.
+
+```bash
+# in .env (lässt sich mit dem Audio-Overlay kombinieren):
+COMPOSE_FILE=docker-compose.yml:docker-compose.audio-pulse.yml:docker-compose.monitoring.yml
+GRAFANA_ADMIN_PASSWORD=<passwort>
+```
+
+Nach `make up`: Grafana unter <http://localhost:3001> (Benutzer `admin`, Port über `GRAFANA_PORT`). Prometheus selbst ist nur lokal unter <http://127.0.0.1:9090> erreichbar. Die Daten bleiben 90 Tage bzw. bis 2 GB (`PROMETHEUS_RETENTION`, `PROMETHEUS_RETENTION_SIZE`).
+
+Der Manager liefert die Metriken auf Port 9464 (`METRICS_PORT`, `0` = aus). Der Port ist nur im Compose-Netz sichtbar, nicht auf dem Host.
+
+**Systemwerte der Pis (optional):** CPU-Temperatur, Last, Arbeitsspeicher, SD-Karte und WLAN-Verkehr erscheinen im eingeklappten Bereich „Raspberry Pis“, wenn auf den Wagen der node_exporter läuft:
+
+```bash
+sudo apt install prometheus-node-exporter        # auf jedem Pi
+cp monitoring/prometheus/targets/pis.yml.example monitoring/prometheus/targets/pis.yml
+# IPs eintragen – Prometheus liest die Datei ohne Neustart ein
+```
+
+Das Dashboard liegt in `monitoring/grafana/dashboards/modellbahn.json`. Änderungen in der Grafana-Oberfläche gehen beim Neustart verloren; zum Behalten das Dashboard als JSON exportieren und dort ablegen.
 
 ### 4. Manager starten
 

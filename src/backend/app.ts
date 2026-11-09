@@ -11,6 +11,7 @@ import { cameraRouter, sessionsRouter } from './routes/cameras.js';
 import { scheduleRouter } from './routes/schedules.js';
 import { systemRouter } from './routes/system.js';
 import { createMediaRouter } from './routes/media.js';
+import { httpMetrics } from './metrics.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // src/backend -> ../../public  and  dist/backend -> ../../public
@@ -25,6 +26,7 @@ export function createApp() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  app.use(httpMetrics);
   app.use(basicAuth(appConfig.auth.user, appConfig.auth.password));
 
   // Frontend is served from this origin, so CORS is only needed for explicitly listed origins.

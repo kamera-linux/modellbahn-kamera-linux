@@ -3,7 +3,7 @@
 # Deploy the manager to a Raspberry Pi 5 (or any Docker host) and build there natively.
 #   scripts/deploy-rpi5.sh [host] [user] [path]
 #
-# Local config (.env, config/devices.json) and data/ on the target are kept.
+# Local config (.env, config/devices.json, monitoring targets) and data/ on the target are kept.
 
 set -euo pipefail
 
@@ -23,6 +23,7 @@ rsync -az --delete \
   --exclude=data \
   --exclude=.env \
   --exclude=config/devices.json \
+  --exclude='monitoring/prometheus/targets/*.yml' \
   "$ROOT/" "$TARGET_USER@$TARGET_HOST:~/$TARGET_PATH/"
 
 echo "🏗️  Build & Start auf dem Ziel …"

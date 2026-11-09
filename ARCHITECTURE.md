@@ -57,6 +57,7 @@ Auf den Pis läuft kein eigener Dienst. Der Manager ruft per SSH die Python-Skri
 | `services/timeWindow.ts` | Zeitfenster-Logik (inkl. über Mitternacht) |
 | `routes/media.ts` | Gemeinsamer Router für Foto- und Video-Dateien: Liste, Inline-Ansicht, Download, Vorschaubild, Löschen |
 | `utils/shell.ts` | Quoting aller Argumente für Remote-Befehle |
+| `metrics.ts` | Prometheus-Metriken (`prom-client`): Zähler/Histogramme für Aufnahmen, Fotos, SSH, API; Kamerastatus und Speicher werden beim Abruf gelesen. Eigener Port `METRICS_PORT` (9464) |
 
 ### Sicherheit
 
@@ -64,6 +65,7 @@ Auf den Pis läuft kein eigener Dienst. Der Manager ruft per SSH die Python-Skri
 - **Ziele**: SSH-Verbindungen gibt es nur zu Kameras aus `devices.json`. Die Diagnose nimmt eine Kamera-ID, keinen Host.
 - **Dateien**: Dateinamen werden gegen ein striktes Muster und die erlaubten Endungen geprüft, das verhindert Path Traversal.
 - **Container**: läuft als unprivilegierter User. Gemountet wird nur der eine private Key (read-only), nicht `~/.ssh`.
+- **Metriken**: `/metrics` läuft auf einem eigenen Port ohne Login. Im Container ist er nur im Compose-Netz erreichbar (`expose`, kein `ports`), Prometheus fragt ihn dort ab. Grafana hat einen eigenen Login (`GRAFANA_ADMIN_PASSWORD`).
 - **Login**: Basic Auth. Über ein unverschlüsseltes Netz geht das Passwort im Klartext. Im Heimnetz ist das vertretbar, für Zugriff von außen gehört ein Reverse Proxy mit TLS davor.
 
 ### Kamera-Zugriff
