@@ -1,0 +1,131 @@
+name: Release
+
+# Two ways to release:
+#  1. Actions → "Release" → "Run workflow" (or: make release-gh BUMP=minor TITLE="…"):
+#     checks, bumps the version, moves [Unreleased] in CHANGELOG.md, commits, tags, publishes.
+#  2. Local: make release BUMP=patch && git push origin main --follow-tags → publishes the tag.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Versionssprung (patch = Fehlerbehebung, minor = neue Funktion, major = inkompatibel)
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      title:
+        description: Titel des Releases (optional, z. B. "Zeitpläne für Videos")
+        type: string
+        required: false
+  push:
+    tags: ['v*.*.*']
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci && npm --prefix frontend ci
+
+      - name: Lint, Typecheck, Test
+        run: npm run lint && npm run typecheck && npm test
+
+      - name: Version hochzählen, Commit und Tag
+        id: bump
+        env:
+          BUMP: ${{ inputs.bump }}
+          TITLE: ${{ inputs.title }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          node scripts/release.mjs "$BUMP" --title "$TITLE" --commit
+          version=$(node -p "require('./package.json').version")
+          git push origin HEAD:main "v$version"
+
+  publish:
+    needs: prepare
+    # Runs after "prepare" (button) or directly for a pushed tag (prepare is skipped then).
+    if: always() && (needs.prepare.result == 'success' || (github.event_name == 'push' && needs.prepare.result == 'skipped'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Version bestimmen
+        id: v
+        env:
+          FROM_PREPARE: ${{ needs.prepare.outputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version="${FROM_PREPARE:-${REF_NAME#v}}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "minor=${version%.*}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ steps.v.outputs.version }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Versionen prüfen
+        run: node scripts/release.mjs --check
+
+      - name: GitHub-Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          node scripts/release.mjs --notes "$VERSION" --notes-out "$RUNNER_TEMP/notes.md"
+          git fetch -q --force origin "refs/tags/v$VERSION:refs/tags/v$VERSION"
+          title=$(git tag -l --format='%(contents:subject)' "v$VERSION" | sed 's/^release: //')
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "Release v$VERSION existiert bereits"
+          else
+            gh release create "v$VERSION" --verify-tag --title "${title:-v$VERSION}" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker-Image (amd64 + arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          labels: |
+            org.opencontainers.image.version=${{ steps.v.outputs.version }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ steps.v.outputs.version }}
+            ghcr.io/${{ github.repository }}:${{ steps.v.outputs.minor }}
+            ghcr.io/${{ github.repository }}:latest

@@ -232,6 +232,25 @@ flowchart LR
     scripts -. "deploy-cameras.sh" .-> pis["Kamerawagen"]
 ```
 
+## Release
+
+Versionen nach [Semantic Versioning](https://semver.org/lang/de/): **patch** für Fehlerbehebungen, **minor** für neue Funktionen, **major** für inkompatible Änderungen. Änderungen kommen während der Entwicklung in [CHANGELOG.md](CHANGELOG.md) unter `[Unreleased]`.
+
+```bash
+make release-gh BUMP=minor TITLE="Zeitpläne für Videos"   # oder: Actions → Release → Run workflow
+```
+
+Der Workflow [release.yml](.github/workflows/release.yml) erledigt den Rest:
+
+1. Lint, Typecheck und Tests
+2. Version in `package.json`, `frontend/package.json` und den Lockfiles hochzählen (die Oberfläche zeigt sie oben neben dem Titel)
+3. `[Unreleased]` im CHANGELOG zum Abschnitt der neuen Version machen. Ist er leer, werden die Commit-Nachrichten seit dem letzten Release eingetragen
+4. Commit `release: vX.Y.Z – Titel` und Tag `vX.Y.Z` auf `main`
+5. GitHub-Release mit den Notizen aus dem CHANGELOG
+6. Docker-Images für amd64 und arm64: `ghcr.io/kamera-linux/modellbahn-kamera-linux:X.Y.Z`, `:X.Y` und `:latest` (jeder Push auf `main` baut zusätzlich `:main`)
+
+Alternativ lokal mit Node.js: `make release BUMP=patch` legt Commit und Tag an, `git push origin main --follow-tags` stößt dann Schritt 5 und 6 an.
+
 ## Sicherheit
 
 Der Manager ist für das Heimnetz gedacht und spricht nur HTTP. Nicht direkt ins Internet stellen. Für den Zugriff von unterwegs einen VPN-Zugang (z. B. WireGuard) oder einen Reverse Proxy mit HTTPS davorschalten.

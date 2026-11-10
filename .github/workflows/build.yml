@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: npm ci && npm --prefix frontend ci
 
+      - name: Versionen gleich (package.json, Frontend, Lockfiles)
+        run: node scripts/release.mjs --check
+
       - name: Lint
         run: npm run lint
 
@@ -72,5 +75,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:main
             ghcr.io/${{ github.repository }}:${{ github.sha }}

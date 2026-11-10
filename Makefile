@@ -1,4 +1,4 @@
-.PHONY: help up down logs build rebuild buildx dev install test lint typecheck check deploy-cameras setup-cameras deploy-rpi5
+.PHONY: help up down logs build rebuild buildx dev install test lint typecheck check deploy-cameras setup-cameras deploy-rpi5 release release-gh
 
 IMAGE ?= modellbahn-kamera-manager
 REGISTRY ?= localhost
@@ -17,6 +17,8 @@ help:
 	@echo "  make deploy-cameras  Kamera-Skripte auf alle Pis kopieren"
 	@echo "  make setup-cameras   ... und Pakete auf den Pis installieren"
 	@echo "  make deploy-rpi5     Manager auf den Raspberry Pi 5 deployen"
+	@echo "  make release-gh BUMP=minor TITLE='…'  Release über GitHub Actions"
+	@echo "  make release BUMP=patch               Release lokal (Commit + Tag)"
 
 up:
 	docker compose up -d --build
@@ -62,3 +64,17 @@ setup-cameras:
 
 deploy-rpi5:
 	scripts/deploy-rpi5.sh
+
+# ---------- Release (siehe README) ----------
+BUMP ?= patch
+TITLE ?=
+
+# Empfohlen: GitHub Actions prüft, zählt hoch, taggt und veröffentlicht Release und Docker-Images.
+release-gh:
+	gh workflow run release.yml -f bump=$(BUMP) -f title="$(TITLE)"
+	@echo "Fortschritt: gh run list -w release.yml -L 1  bzw.  gh run watch"
+
+# Lokal: Commit + Tag hier anlegen; der gepushte Tag löst die Veröffentlichung aus.
+release:
+	node scripts/release.mjs $(BUMP) --title "$(TITLE)" --commit
+	@echo "Jetzt veröffentlichen: git push origin main --follow-tags"
