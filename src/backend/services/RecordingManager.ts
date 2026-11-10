@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { logger } from '../utils/logger.js';
 import type { RecordingSession } from '../../shared/types.js';
 
@@ -23,7 +23,7 @@ export class RecordingManager {
   ): RecordingSession {
     const startTime = extra.startTime ?? new Date();
     const session: RecordingSession & { startTime: Date } = {
-      id: uuidv4(),
+      id: randomUUID(),
       cameraId,
       cameraName,
       startTime,

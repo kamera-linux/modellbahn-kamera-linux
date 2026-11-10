@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { logger } from '../utils/logger.js';
@@ -80,7 +80,7 @@ export class ScheduleManager {
     this.checkCameras(input.cameraIds);
     const schedule: CaptureSchedule = {
       ...input,
-      id: uuidv4(),
+      id: randomUUID(),
       enabled: input.enabled ?? false,
       createdAt: this.now().toISOString()
     };

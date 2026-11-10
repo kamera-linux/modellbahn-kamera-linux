@@ -232,6 +232,17 @@ flowchart LR
     scripts -. "deploy-cameras.sh" .-> pis["Kamerawagen"]
 ```
 
+## Sicherheit
+
+Der Manager ist für das Heimnetz gedacht und spricht nur HTTP. Nicht direkt ins Internet stellen. Für den Zugriff von unterwegs einen VPN-Zugang (z. B. WireGuard) oder einen Reverse Proxy mit HTTPS davorschalten.
+
+- `AUTH_PASSWORD` immer setzen; ohne Passwort kann jeder im Netz Aufnahmen starten und löschen.
+- Schreibende Anfragen (POST/PUT/DELETE) aus dem Browser werden nur von derselben Adresse angenommen. Eine fremde Webseite kann also keine Aufnahmen auslösen, auch wenn der Browser das Passwort gespeichert hat. Weitere erlaubte Adressen (z. B. ein eigenes Frontend) in `CORS_ORIGINS` eintragen.
+- Der Kamera-Key wird nur lesend in den Container gemountet, der Container läuft ohne Root-Rechte, und SSH-Host-Keys werden beim ersten Kontakt gemerkt.
+- Grafana ist im ganzen Netz erreichbar, Prometheus und die Metriken nur lokal bzw. im Compose-Netz.
+
+Sicherheitslücken bitte nicht als öffentliches Issue melden, sondern über „Report a vulnerability“ im Reiter *Security* des Repositorys.
+
 ## Troubleshooting
 
 - **Kamera „offline“**: In der UI die Diagnose öffnen und „Test SSH“ klicken. Manuell: `ssh -i ~/.ssh/kamera_ed25519 pi@<ip>`.

@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { readFileSync, writeFileSync, mkdirSync, renameSync, statSync } from 'fs';
 import { join } from 'path';
 import { SSHManager, SSHTarget } from './SSHManager.js';
@@ -281,7 +281,7 @@ export class CameraManager {
     }
 
     return this.withLock(cameraId, async () => {
-      const remoteFile = `${appConfig.remoteWorkDir}/kamera_${uuidv4()}.jpg`;
+      const remoteFile = `${appConfig.remoteWorkDir}/kamera_${randomUUID()}.jpg`;
       const remoteThumb = `${remoteFile}.thumb.jpg`;
       const filename = `${safeName(camera.name)}_${fileTimestamp(new Date(), true)}.jpg`;
       const localFile = join(paths.photosDir, filename);
@@ -465,7 +465,7 @@ export class CameraManager {
     }
 
     const startAt = Date.now() / 1000 + appConfig.startLeadSeconds;
-    const groupId = uuidv4();
+    const groupId = randomUUID();
     const result: GroupRecordingResult = { groupId, startAt: new Date(startAt * 1000).toISOString(), started: [], skipped: [] };
 
     for (const id of ids) {

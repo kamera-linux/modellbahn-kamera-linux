@@ -6,6 +6,7 @@ import { existsSync } from 'fs';
 import { logger } from './utils/logger.js';
 import { appConfig, paths } from './config.js';
 import { basicAuth } from './middleware/auth.js';
+import { sameOriginOnly, securityHeaders } from './middleware/security.js';
 import { HttpError } from './validation.js';
 import { cameraRouter, sessionsRouter } from './routes/cameras.js';
 import { scheduleRouter } from './routes/schedules.js';
@@ -20,6 +21,7 @@ export const PUBLIC_DIR = process.env.PUBLIC_DIR || path.resolve(__dirname, '../
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
+  app.use(securityHeaders);
 
   // Health check stays unauthenticated for Docker's healthcheck.
   app.get('/health', (_req, res) => {
@@ -28,6 +30,7 @@ export function createApp() {
 
   app.use(httpMetrics);
   app.use(basicAuth(appConfig.auth.user, appConfig.auth.password));
+  app.use(sameOriginOnly(appConfig.corsOrigins));
 
   // Frontend is served from this origin, so CORS is only needed for explicitly listed origins.
   if (appConfig.corsOrigins.length) {
