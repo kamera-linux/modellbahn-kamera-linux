@@ -6,6 +6,9 @@ Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### 🔧 Sonstiges
+- GitHub Actions auf Versionen mit Node.js 24 aktualisiert (checkout v7, setup-node v7, Docker-Actions v4/v7)
+
 ## [1.2.0] - 2026-11-10 – Gruppenaufnahme, Monitoring & Sicherheit
 
 ### 🆕 Neu
