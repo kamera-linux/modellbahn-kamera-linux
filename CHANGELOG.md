@@ -6,6 +6,10 @@ Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### 🆕 Neu
+- Fertiges Image von GitHub verwenden statt selbst zu bauen: `docker-compose.image.yml`
+  (in `.env`: `COMPOSE_FILE=docker-compose.yml:docker-compose.image.yml`, optional `MANAGER_TAG`)
+
 ### 🔧 Sonstiges
 - GitHub Actions auf Versionen mit Node.js 24 aktualisiert (checkout v7, setup-node v7, Docker-Actions v4/v7)
 

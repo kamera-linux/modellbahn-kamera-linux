@@ -122,6 +122,16 @@ make up                # = docker compose up -d --build
 
 Weboberfläche: <http://localhost:8000>
 
+**Fertiges Image statt selbst bauen:** Für jede Version gibt es ein fertiges Image für amd64 und arm64 auf GitHub. Damit entfällt der Bau, was vor allem auf dem Raspberry Pi Zeit spart:
+
+```bash
+# in .env (lässt sich mit den Overlays für Ton und Monitoring kombinieren):
+COMPOSE_FILE=docker-compose.yml:docker-compose.image.yml
+MANAGER_TAG=1.2.0      # optional: feste Version. Standard ist latest (neuestes Release), main = Entwicklungsstand
+```
+
+Danach lädt `make up` das Image `ghcr.io/kamera-linux/modellbahn-kamera-linux`, statt es zu bauen. Ein erneutes `make up` holt eine neuere Version. Das Repository wird weiterhin gebraucht: für `.env`, `config/`, `data/` und `make setup-cameras`.
+
 Auf dem Raspberry Pi 5 (Build direkt auf dem Pi):
 
 ```bash

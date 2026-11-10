@@ -1,0 +1,11 @@
+# Use the prebuilt image from GitHub (amd64 + arm64) instead of building locally.
+# Enable in .env (combinable with the audio and monitoring overlays):
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.image.yml
+#   MANAGER_TAG=1.2.0              (optional: pin a release; default "latest" = newest release,
+#                                   "main" = current development state)
+# Then `make up` pulls the image; update later with `make up` again.
+services:
+  manager:
+    image: ghcr.io/kamera-linux/modellbahn-kamera-linux:${MANAGER_TAG:-latest}
+    build: !reset null
+    pull_policy: always
