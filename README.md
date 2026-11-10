@@ -125,7 +125,7 @@ Weboberfläche: <http://localhost:8000>
 Auf dem Raspberry Pi 5 (Build direkt auf dem Pi):
 
 ```bash
-make deploy-rpi5       # rsync + docker compose up -d --build auf raspberrypi-5-ai-had
+make deploy-rpi5 RPI5_HOST=mein-pi5 RPI5_USER=pi   # rsync + docker compose up -d --build
 ```
 
 `.env`, `config/devices.json` und `data/` auf dem Ziel bleiben dabei unverändert.

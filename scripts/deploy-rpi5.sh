@@ -2,13 +2,14 @@
 #
 # Deploy the manager to a Raspberry Pi 5 (or any Docker host) and build there natively.
 #   scripts/deploy-rpi5.sh [host] [user] [path]
+#   Defaults: RPI5_HOST / RPI5_USER from the environment, else raspberrypi.local / pi
 #
 # Local config (.env, config/devices.json, monitoring targets) and data/ on the target are kept.
 
 set -euo pipefail
 
-TARGET_HOST="${1:-raspberrypi-5-ai-had}"
-TARGET_USER="${2:-roimme}"
+TARGET_HOST="${1:-${RPI5_HOST:-raspberrypi.local}}"
+TARGET_USER="${2:-${RPI5_USER:-pi}}"
 TARGET_PATH="${3:-modellbahn-kamera-linux}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
