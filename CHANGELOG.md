@@ -6,6 +6,8 @@ Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-10 – Gruppenaufnahme, Monitoring & Sicherheit
+
 ### 🆕 Neu
 - **Gruppenaufnahme mit Ton:** alle Kamerawagen starten gleichzeitig, das Mikrofon des Servers
   (PulseAudio/PipeWire oder ALSA) wird in jedes Video gemischt
