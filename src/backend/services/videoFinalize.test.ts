@@ -28,7 +28,7 @@ describe('reencodeTimeoutMs', () => {
   });
 
   it('returns whole milliseconds for fractional durations (5-min video with lost frames)', () => {
-    const ms = reencodeTimeoutMs(300.12439733333337);
+    const ms = reencodeTimeoutMs(300.124397);
     expect(Number.isInteger(ms)).toBe(true);
     expect(ms).toBe(1_200_498);
   });
