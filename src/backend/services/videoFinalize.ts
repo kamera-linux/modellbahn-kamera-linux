@@ -7,6 +7,15 @@ import type { Rotation } from '../../shared/types.js';
 const execFileAsync = promisify(execFile);
 
 /**
+ * Time limit (ms) for re-encoding a video of the given length: at least 10 minutes,
+ * otherwise 4× real time (slow machines like the Pi 5). Node's execFile only accepts
+ * whole milliseconds, and the duration from packet timestamps is fractional.
+ */
+export function reencodeTimeoutMs(durationSeconds: number): number {
+  return Math.ceil(Math.max(10 * 60, durationSeconds * 4) * 1000);
+}
+
+/**
  * Frame gaps from packet timestamps (seconds). A gap counts as a lost frame when it is
  * longer than 1.5 frame periods; tiny sensor jitter is ignored.
  */
@@ -24,7 +33,8 @@ export function countDroppedFrames(pts: number[], fps: number): number {
 export interface FinalizeOptions {
   fps: number;
   rotation: Rotation;
-  audio?: { handle: AudioHandle; videoStartedAt: number };
+  /** gainFilter: ffmpeg audio filter from AUDIO_GAIN (null = unchanged) */
+  audio?: { handle: AudioHandle; videoStartedAt: number; gainFilter?: string | null };
   /** Re-encode recordings with lost frames to a constant frame rate; null = keep them VFR. */
   reencode?: { crf: number; preset: string } | null;
 }
@@ -70,7 +80,10 @@ export function buildAudioMuxArgs(video: string, out: string, audio: NonNullable
   if (offset >= 0) args.push('-ss', offset.toFixed(3));
   args.push('-i', audio.handle.file, '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k');
   if (timescale) args.push('-video_track_timescale', String(timescale));
-  if (offset < 0) args.push('-af', `adelay=${Math.round(-offset * 1000)}:all=1`); // audio began after the video
+  const filters: string[] = [];
+  if (offset < 0) filters.push(`adelay=${Math.round(-offset * 1000)}:all=1`); // audio began after the video
+  if (audio.gainFilter) filters.push(audio.gainFilter);
+  if (filters.length) args.push('-af', filters.join(','));
   args.push('-shortest', '-movflags', '+faststart', out);
   return args;
 }
@@ -112,8 +125,7 @@ export async function finalizeVideo(
       await run(buildCfrArgs(raw, cfr, o));
       source = cfr;
     } else if (o.reencode) {
-      // Slow machines (Pi 5) may need longer than real time for this.
-      await run(buildReencodeArgs(video, cfr, { fps: o.fps, ...o.reencode }), Math.max(10 * 60, durationSeconds * 4) * 1000);
+      await run(buildReencodeArgs(video, cfr, { fps: o.fps, ...o.reencode }), reencodeTimeoutMs(durationSeconds));
       source = cfr;
     }
     const constant = dropped === 0 || reencoded;

@@ -24,6 +24,23 @@ export function parseAudioInput(value: string): AudioInput | null {
   return { format: m[1] as AudioInput['format'], device: m[2] };
 }
 
+/**
+ * AUDIO_GAIN -> ffmpeg audio filter (or null for no change).
+ * "<dB>" (e.g. "30"): fixed gain with a limiter so loud sounds do not clip.
+ * "auto": dynamic normalisation (quiet passages are raised, like the automatic gain
+ * control of PulseAudio/PipeWire on a desktop).
+ */
+export function parseAudioGain(value: string): string | null {
+  const v = value.trim().toLowerCase();
+  if (!v || v === '0' || v === 'off') return null;
+  if (v === 'auto') return 'dynaudnorm=f=500:g=31:p=0.9:m=100';
+  const db = Number(v.replace(/db$/, ''));
+  if (!Number.isFinite(db) || db < -30 || db > 60) {
+    throw new Error(`AUDIO_GAIN must be "auto" or a gain in dB between -30 and 60, got "${value}"`);
+  }
+  return `volume=${db}dB,alimiter=limit=0.9:level=0`;
+}
+
 /** One running capture that may serve several recordings at once. */
 export interface AudioHandle {
   file: string; // raw PCM s16le, mono, 48 kHz
@@ -48,7 +65,9 @@ export class AudioRecorder {
   constructor(
     private input: AudioInput | null,
     private dir: string,
-    private ffmpeg = 'ffmpeg'
+    private ffmpeg = 'ffmpeg',
+    /** ffmpeg filter from AUDIO_GAIN, applied when the sound is added to a video */
+    readonly gainFilter: string | null = null
   ) {}
 
   get configured() {
@@ -65,14 +84,14 @@ export class AudioRecorder {
     };
   }
 
-  /** Short test capture; resolves with the peak level in dBFS. */
+  /** Short test capture; resolves with the peak level in dBFS (after AUDIO_GAIN). */
   async test(seconds = 1): Promise<{ ok: boolean; maxVolumeDb?: number; error?: string }> {
     if (!this.input) return { ok: false, error: 'AUDIO_INPUT ist nicht gesetzt' };
     if (this.proc) return { ok: true }; // already capturing fine
     try {
       const { stderr } = await execFileAsync(
         this.ffmpeg,
-        ['-hide_banner', '-nostdin', '-f', this.input.format, '-i', this.input.device, '-t', String(seconds), '-af', 'volumedetect', '-f', 'null', '-'],
+        ['-hide_banner', '-nostdin', '-f', this.input.format, '-i', this.input.device, '-t', String(seconds), '-af', this.gainFilter ? `${this.gainFilter},volumedetect` : 'volumedetect', '-f', 'null', '-'],
         { timeout: (seconds + 10) * 1000 }
       );
       const m = /max_volume:\s*(-?[\d.]+) dB/.exec(stderr);

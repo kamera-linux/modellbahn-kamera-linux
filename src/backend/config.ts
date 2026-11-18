@@ -43,6 +43,8 @@ export const appConfig = {
   // Microphone of the machine the manager runs on, e.g. "pulse:default" or "alsa:hw:1,0".
   // Empty = no audio.
   audioInput: process.env.AUDIO_INPUT || '',
+  // Microphone gain added to the videos: "<dB>" (e.g. 30, with limiter) or "auto". Empty = unchanged.
+  audioGain: process.env.AUDIO_GAIN || '',
   ffmpegPath: process.env.FFMPEG_PATH || 'ffmpeg',
   ffprobePath: process.env.FFPROBE_PATH || 'ffprobe',
   // Recordings with lost frames: re-encode on the manager to a constant frame rate

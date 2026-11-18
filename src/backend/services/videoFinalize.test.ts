@@ -3,7 +3,7 @@ import { execFileSync } from 'child_process';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { countDroppedFrames, buildCfrArgs, buildAudioMuxArgs, buildReencodeArgs, finalizeVideo } from './videoFinalize.js';
+import { countDroppedFrames, buildCfrArgs, buildAudioMuxArgs, buildReencodeArgs, finalizeVideo, reencodeTimeoutMs } from './videoFinalize.js';
 import { SAMPLE_RATE } from './AudioRecorder.js';
 
 const frames = (n: number, fps = 30, jitterMs = 0.04) =>
@@ -19,6 +19,18 @@ describe('countDroppedFrames', () => {
   });
   it('handles unsorted input (B-frames / packet order)', () => {
     expect(countDroppedFrames([0.1, 0, 0.0333, 0.0667], 30)).toBe(0);
+  });
+});
+
+describe('reencodeTimeoutMs', () => {
+  it('uses at least 10 minutes', () => {
+    expect(reencodeTimeoutMs(5)).toBe(600_000);
+  });
+
+  it('returns whole milliseconds for fractional durations (5-min video with lost frames)', () => {
+    const ms = reencodeTimeoutMs(300.12439733333337);
+    expect(Number.isInteger(ms)).toBe(true);
+    expect(ms).toBe(1_200_498);
   });
 });
 
@@ -52,6 +64,13 @@ describe('buildAudioMuxArgs', () => {
     expect(args).not.toContain('-ss');
     expect(args).not.toContain('-video_track_timescale');
     expect(args[args.indexOf('-af') + 1]).toBe('adelay=250:all=1');
+  });
+
+  it('applies the AUDIO_GAIN filter after the delay', () => {
+    const args = buildAudioMuxArgs('/v.mp4', '/o.mp4', { ...audio, videoStartedAt: 999.75, gainFilter: 'volume=30dB' });
+    expect(args[args.indexOf('-af') + 1]).toBe('adelay=250:all=1,volume=30dB');
+    const noDelay = buildAudioMuxArgs('/v.mp4', '/o.mp4', { ...audio, gainFilter: 'volume=30dB' });
+    expect(noDelay[noDelay.indexOf('-af') + 1]).toBe('volume=30dB');
   });
 });
 

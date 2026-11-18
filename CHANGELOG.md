@@ -9,6 +9,12 @@ Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 ### 🆕 Neu
 - Fertiges Image von GitHub verwenden statt selbst zu bauen: `docker-compose.image.yml`
   (in `.env`: `COMPOSE_FILE=docker-compose.yml:docker-compose.image.yml`, optional `MANAGER_TAG`)
+- Verstärkung für leise Mikrofone: `AUDIO_GAIN` in `.env` – fester Wert in dB (z.B. `30`, mit
+  Limiter gegen Übersteuern) oder `auto` (automatische Pegelanpassung). Gilt auch für „Mikrofon testen“
+
+### 🐛 Behoben
+- Videos ab ca. 2,5 Minuten mit verlorenen Bildern: Nachbearbeitung brach ab
+  (`timeout` muss eine ganze Zahl sein), das Video blieb ohne Ton und mit variabler Bildrate
 
 ### 🔧 Sonstiges
 - GitHub Actions auf Versionen mit Node.js 24 aktualisiert (checkout v7, setup-node v7, Docker-Actions v4/v7)

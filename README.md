@@ -46,6 +46,7 @@ Wichtige Einstellungen in `.env`:
 | `APP_UID` / `APP_GID` | Besitzer von `config/`, `data/` und dem Key (`id -u`, `id -g`) |
 | `SSH_HOST_KEY_CHECK` | `tofu` (Standard): Host-Key beim ersten Kontakt merken, Änderungen ablehnen |
 | `AUDIO_INPUT` | Mikrofon des Servers, z.B. `pulse:<quelle>` oder `alsa:plughw:1,0`. Leer = kein Ton |
+| `AUDIO_GAIN` | Verstärkung des Mikrofons in den Videos: dB-Wert (z.B. `30`, mit Limiter gegen Übersteuern) oder `auto` (automatische Pegelanpassung). Leer = unverändert |
 | `COMPOSE_FILE` | Für Ton zusätzlich `docker-compose.audio-pulse.yml` (Laptop/Desktop) oder `docker-compose.audio-alsa.yml` (Pi 5) laden |
 | `START_LEAD_SECONDS` | Vorlauf für „Alle aufnehmen“ (Standard 7 s) |
 | `VFR_REENCODE` | `on` (Standard): Videos mit verlorenen Bildern auf dem Manager auf konstante Bildrate neu kodieren. `off`: variable Bildrate behalten |

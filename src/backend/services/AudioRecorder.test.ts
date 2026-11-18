@@ -2,7 +2,22 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { mkdtempSync, writeFileSync, chmodSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { AudioRecorder, parseAudioInput } from './AudioRecorder.js';
+import { AudioRecorder, parseAudioInput, parseAudioGain } from './AudioRecorder.js';
+
+describe('parseAudioGain', () => {
+  it('maps dB values and "auto" to ffmpeg filters', () => {
+    expect(parseAudioGain('')).toBeNull();
+    expect(parseAudioGain('0')).toBeNull();
+    expect(parseAudioGain('30')).toBe('volume=30dB,alimiter=limit=0.9:level=0');
+    expect(parseAudioGain('12.5dB')).toBe('volume=12.5dB,alimiter=limit=0.9:level=0');
+    expect(parseAudioGain('Auto')).toMatch(/^dynaudnorm=/);
+  });
+
+  it('rejects invalid values', () => {
+    expect(() => parseAudioGain('laut')).toThrow(/AUDIO_GAIN/);
+    expect(() => parseAudioGain('100')).toThrow(/AUDIO_GAIN/);
+  });
+});
 
 describe('parseAudioInput', () => {
   it('parses pulse and alsa inputs', () => {

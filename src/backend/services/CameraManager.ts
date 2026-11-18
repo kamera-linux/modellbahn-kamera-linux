@@ -7,7 +7,7 @@ import { logger } from '../utils/logger.js';
 import { buildCommand } from '../utils/shell.js';
 import { appConfig, paths, thumbFor } from '../config.js';
 import { HttpError } from '../validation.js';
-import { AudioRecorder, AudioHandle, parseAudioInput } from './AudioRecorder.js';
+import { AudioRecorder, AudioHandle, parseAudioInput, parseAudioGain } from './AudioRecorder.js';
 import { finalizeVideo } from './videoFinalize.js';
 import { ScriptSync } from './ScriptSync.js';
 import { metrics, since, initCameraMetrics } from '../metrics.js';
@@ -96,7 +96,12 @@ export class CameraManager {
   private statusCheckRunning = false;
   readonly scripts = new ScriptSync(this.ssh, appConfig.piScriptsDir, appConfig.remoteScriptDir, undefined, appConfig.remoteWorkDir);
   private syncing = new Set<string>();
-  readonly audio = new AudioRecorder(parseAudioInput(appConfig.audioInput), paths.audioTmpDir, appConfig.ffmpegPath);
+  readonly audio = new AudioRecorder(
+    parseAudioInput(appConfig.audioInput),
+    paths.audioTmpDir,
+    appConfig.ffmpegPath,
+    parseAudioGain(appConfig.audioGain)
+  );
 
   constructor() {
     mkdirSync(paths.videosDir, { recursive: true });
@@ -409,7 +414,7 @@ export class CameraManager {
         if (handle && videoStartedAt === null) {
           this.recordings.update(session.id, { warning: 'Startzeit des Videos unbekannt – Ton nicht hinzugefügt' });
         }
-        const withAudio = handle && videoStartedAt !== null ? { handle, videoStartedAt } : undefined;
+        const withAudio = handle && videoStartedAt !== null ? { handle, videoStartedAt, gainFilter: this.audio.gainFilter } : undefined;
         this.recordings.update(session.id, { status: 'processing' });
         const pp = process.hrtime.bigint();
         try {
