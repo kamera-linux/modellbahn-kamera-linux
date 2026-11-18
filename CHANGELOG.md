@@ -17,6 +17,7 @@ Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
   (`timeout` muss eine ganze Zahl sein), das Video blieb ohne Ton und mit variabler Bildrate
 
 ### 🔧 Sonstiges
+- typescript-eslint 8.73: zieht minimatch 11 statt 10 (GHSA-g3hv-75wg-m249, nur Entwicklung)
 - GitHub Actions auf Versionen mit Node.js 24 aktualisiert (checkout v7, setup-node v7, Docker-Actions v4/v7)
 
 ## [1.2.0] - 2026-11-10 – Gruppenaufnahme, Monitoring & Sicherheit
