@@ -6,6 +6,8 @@ Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-11-18 – Mikrofontest mit automatischer Verstärkung
+
 ### 🐛 Behoben
 - „Mikrofon testen“ mit `AUDIO_GAIN=auto` brach nach 11 s ab; der Test misst dann den Pegel ohne
   automatische Anpassung
