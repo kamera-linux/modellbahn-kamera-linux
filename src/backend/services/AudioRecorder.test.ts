@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { mkdtempSync, writeFileSync, chmodSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { AudioRecorder, parseAudioInput, parseAudioGain } from './AudioRecorder.js';
+import { AudioRecorder, parseAudioInput, parseAudioGain, levelTestFilter } from './AudioRecorder.js';
 
 describe('parseAudioGain', () => {
   it('maps dB values and "auto" to ffmpeg filters', () => {
@@ -16,6 +16,14 @@ describe('parseAudioGain', () => {
   it('rejects invalid values', () => {
     expect(() => parseAudioGain('laut')).toThrow(/AUDIO_GAIN/);
     expect(() => parseAudioGain('100')).toThrow(/AUDIO_GAIN/);
+  });
+});
+
+describe('levelTestFilter', () => {
+  it('applies a fixed gain but measures "auto" without the slow look-ahead filter', () => {
+    expect(levelTestFilter(null)).toBe('volumedetect');
+    expect(levelTestFilter(parseAudioGain('30'))).toBe('volume=30dB,alimiter=limit=0.9:level=0,volumedetect');
+    expect(levelTestFilter(parseAudioGain('auto'))).toBe('volumedetect');
   });
 });
 

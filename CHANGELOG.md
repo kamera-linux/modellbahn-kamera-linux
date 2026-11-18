@@ -6,6 +6,10 @@ Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+### 🐛 Behoben
+- „Mikrofon testen“ mit `AUDIO_GAIN=auto` brach nach 11 s ab; der Test misst dann den Pegel ohne
+  automatische Anpassung
+
 ## [1.2.1] - 2026-11-18 – Ton für lange Videos, Mikrofon-Verstärkung
 
 ### 🆕 Neu

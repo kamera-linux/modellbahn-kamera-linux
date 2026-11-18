@@ -41,6 +41,16 @@ export function parseAudioGain(value: string): string | null {
   return `volume=${db}dB,alimiter=limit=0.9:level=0`;
 }
 
+/**
+ * Filter chain for the short level test ("Mikrofon testen"). A fixed gain is applied so the
+ * level matches the videos. "auto" (dynaudnorm) is left out: it looks ~15 s ahead, so a 1 s
+ * sample takes far longer than the test timeout, and an adaptive gain cannot be judged from
+ * one second anyway – the test then shows the raw microphone level.
+ */
+export function levelTestFilter(gainFilter: string | null): string {
+  return gainFilter && !gainFilter.startsWith('dynaudnorm') ? `${gainFilter},volumedetect` : 'volumedetect';
+}
+
 /** One running capture that may serve several recordings at once. */
 export interface AudioHandle {
   file: string; // raw PCM s16le, mono, 48 kHz
@@ -84,14 +94,14 @@ export class AudioRecorder {
     };
   }
 
-  /** Short test capture; resolves with the peak level in dBFS (after AUDIO_GAIN). */
+  /** Short test capture; resolves with the peak level in dBFS (after a fixed AUDIO_GAIN). */
   async test(seconds = 1): Promise<{ ok: boolean; maxVolumeDb?: number; error?: string }> {
     if (!this.input) return { ok: false, error: 'AUDIO_INPUT ist nicht gesetzt' };
     if (this.proc) return { ok: true }; // already capturing fine
     try {
       const { stderr } = await execFileAsync(
         this.ffmpeg,
-        ['-hide_banner', '-nostdin', '-f', this.input.format, '-i', this.input.device, '-t', String(seconds), '-af', this.gainFilter ? `${this.gainFilter},volumedetect` : 'volumedetect', '-f', 'null', '-'],
+        ['-hide_banner', '-nostdin', '-f', this.input.format, '-i', this.input.device, '-t', String(seconds), '-af', levelTestFilter(this.gainFilter), '-f', 'null', '-'],
         { timeout: (seconds + 10) * 1000 }
       );
       const m = /max_volume:\s*(-?[\d.]+) dB/.exec(stderr);
