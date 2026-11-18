@@ -6,6 +6,8 @@ Versionen nach [Semantic Versioning](https://semver.org/lang/de/).
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-18 – Ton für lange Videos, Mikrofon-Verstärkung
+
 ### 🆕 Neu
 - Fertiges Image von GitHub verwenden statt selbst zu bauen: `docker-compose.image.yml`
   (in `.env`: `COMPOSE_FILE=docker-compose.yml:docker-compose.image.yml`, optional `MANAGER_TAG`)
